@@ -32,8 +32,7 @@
                         :is="Component"
                         :key="$route.fullPath"
                         :calculatedHeight="height"
-                        @compose-focus-change="setComposeFocusMode"
-                        @compose-details-width-change="setDetailsPaneWidthForLayout"
+                        v-on="routedChildListeners"
                     />
                 </router-view>
             </main>
@@ -44,6 +43,7 @@
 <script>
 import StackList from "../components/StackList.vue";
 import {
+    clampPaneWidth,
     DETAILS_PANE_CONFIG,
     STACK_PANE_CONFIG,
     readPaneWidth,
@@ -67,15 +67,23 @@ export default {
         };
     },
     computed: {
+        routedChildListeners() {
+            if (this.$route.name === "DashboardHome" || this.$route.path.startsWith("/compose")) {
+                return {
+                    "compose-focus-change": this.setComposeFocusMode,
+                    "compose-details-width-change": this.setDetailsPaneWidthForLayout,
+                };
+            }
+
+            return {};
+        },
         shouldCollapseStackPane() {
             return shouldCollapseSecondaryPanes(this.windowWidth, this.stackPaneWidth, this.detailsPaneWidthForLayout);
         },
     },
     watch: {
-        "$route.path"(path) {
-            if (!path.startsWith("/compose")) {
-                this.composeFocusMode = false;
-            }
+        "$route.fullPath"() {
+            this.composeFocusMode = false;
         },
     },
     mounted() {
@@ -133,7 +141,7 @@ export default {
         },
 
         setDetailsPaneWidthForLayout(width) {
-            this.detailsPaneWidthForLayout = writePaneWidth(window.localStorage, DETAILS_PANE_CONFIG, width);
+            this.detailsPaneWidthForLayout = clampPaneWidth(width, DETAILS_PANE_CONFIG);
         },
 
         handleStackResizeKeydown(event) {

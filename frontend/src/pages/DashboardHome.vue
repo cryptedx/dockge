@@ -108,7 +108,15 @@
             </div>
         </div>
     </transition>
-    <router-view ref="child" />
+    <router-view v-slot="{ Component }">
+        <component
+            :is="Component"
+            v-on="{
+                'compose-focus-change': ($event) => $emit('compose-focus-change', $event),
+                'compose-details-width-change': ($event) => $emit('compose-details-width-change', $event),
+            }"
+        />
+    </router-view>
 </template>
 
 <script>
@@ -124,6 +132,7 @@ export default {
             default: 0
         }
     },
+    emits: [ "compose-focus-change", "compose-details-width-change" ],
     data() {
         return {
             page: 1,

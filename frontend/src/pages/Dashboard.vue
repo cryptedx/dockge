@@ -12,16 +12,19 @@
                 <StackList :scrollbar="true" />
             </aside>
 
-            <button
+            <div
                 v-if="!$root.isMobile && !composeFocusMode && !shouldCollapseStackPane"
                 class="pane-resizer stack-resizer"
-                type="button"
+                tabindex="0"
                 role="separator"
                 aria-orientation="vertical"
                 :aria-label="$t('resizeStackPane')"
+                :aria-valuemin="stackPaneConfig.minWidth"
+                :aria-valuemax="stackPaneConfig.maxWidth"
+                :aria-valuenow="stackPaneWidth"
                 @pointerdown="startStackResize"
                 @keydown="handleStackResizeKeydown"
-            ></button>
+            ></div>
 
             <main ref="container" class="dashboard-main">
                 <router-view v-slot="{ Component }">
@@ -30,6 +33,7 @@
                         :key="$route.fullPath"
                         :calculatedHeight="height"
                         @compose-focus-change="setComposeFocusMode"
+                        @compose-details-width-change="setDetailsPaneWidthForLayout"
                     />
                 </router-view>
             </main>
@@ -54,6 +58,7 @@ export default {
     data() {
         return {
             height: 0,
+            stackPaneConfig: STACK_PANE_CONFIG,
             stackPaneWidth: STACK_PANE_CONFIG.defaultWidth,
             detailsPaneWidthForLayout: DETAILS_PANE_CONFIG.defaultWidth,
             windowWidth: window.innerWidth,
@@ -64,6 +69,13 @@ export default {
     computed: {
         shouldCollapseStackPane() {
             return shouldCollapseSecondaryPanes(this.windowWidth, this.stackPaneWidth, this.detailsPaneWidthForLayout);
+        },
+    },
+    watch: {
+        "$route.path"(path) {
+            if (!path.startsWith("/compose")) {
+                this.composeFocusMode = false;
+            }
         },
     },
     mounted() {
@@ -91,6 +103,7 @@ export default {
             document.body.classList.add("resizing-pane");
             document.addEventListener("pointermove", this.handleStackResize);
             document.addEventListener("pointerup", this.stopStackResize);
+            document.addEventListener("pointercancel", this.stopStackResize);
             event.preventDefault();
         },
 
@@ -112,10 +125,15 @@ export default {
             document.body.classList.remove("resizing-pane");
             document.removeEventListener("pointermove", this.handleStackResize);
             document.removeEventListener("pointerup", this.stopStackResize);
+            document.removeEventListener("pointercancel", this.stopStackResize);
         },
 
         setStackPaneWidth(width) {
             this.stackPaneWidth = writePaneWidth(window.localStorage, STACK_PANE_CONFIG, width);
+        },
+
+        setDetailsPaneWidthForLayout(width) {
+            this.detailsPaneWidthForLayout = writePaneWidth(window.localStorage, DETAILS_PANE_CONFIG, width);
         },
 
         handleStackResizeKeydown(event) {

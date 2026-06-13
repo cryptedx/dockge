@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
     DETAILS_PANE_CONFIG,
+    EDITOR_MIN_WIDTH,
+    SPLIT_LAYOUT_CHROME_WIDTH,
     STACK_PANE_CONFIG,
     clampPaneWidth,
     readPaneWidth,
@@ -89,8 +91,18 @@ test("shouldCollapseSecondaryPanes protects the editor width", () => {
 });
 
 test("shouldCollapseSecondaryPanes keeps the boundary width visible", () => {
-    const boundaryWidth = 260 + 320 + 480 + 48;
+    const boundaryWidth =
+        STACK_PANE_CONFIG.defaultWidth +
+        DETAILS_PANE_CONFIG.defaultWidth +
+        EDITOR_MIN_WIDTH +
+        SPLIT_LAYOUT_CHROME_WIDTH;
 
-    assert.equal(shouldCollapseSecondaryPanes(boundaryWidth, 260, 320), false);
-    assert.equal(shouldCollapseSecondaryPanes(boundaryWidth - 1, 260, 320), true);
+    assert.equal(
+        shouldCollapseSecondaryPanes(boundaryWidth, STACK_PANE_CONFIG.defaultWidth, DETAILS_PANE_CONFIG.defaultWidth),
+        false,
+    );
+    assert.equal(
+        shouldCollapseSecondaryPanes(boundaryWidth - 1, STACK_PANE_CONFIG.defaultWidth, DETAILS_PANE_CONFIG.defaultWidth),
+        true,
+    );
 });

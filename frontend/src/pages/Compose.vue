@@ -295,16 +295,16 @@ export default {
         CodeMirror,
         BModal,
     },
-    emits: [
-        "compose-focus-change",
-        "compose-details-width-change",
-    ],
     beforeRouteUpdate(to, from, next) {
         this.exitConfirm(next);
     },
     beforeRouteLeave(to, from, next) {
         this.exitConfirm(next);
     },
+    emits: [
+        "compose-focus-change",
+        "compose-details-width-change",
+    ],
     setup() {
         const editorFocus = ref(false);
 

@@ -109,6 +109,10 @@
                             @change="yamlCodeChange"
                         />
                     </div>
+
+                    <div v-if="isEditMode && yamlError" class="alert alert-danger py-2 mb-3">
+                        {{ yamlError }}
+                    </div>
                 </section>
 
                 <button
@@ -149,10 +153,6 @@
                                 </select>
                             </div>
                         </div>
-                    </div>
-
-                    <div v-if="isEditMode && yamlError" class="alert alert-danger py-2 mb-3">
-                        {{ yamlError }}
                     </div>
 
                     <div class="compose-details-section">

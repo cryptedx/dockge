@@ -267,6 +267,11 @@ import { BModal } from "bootstrap-vue-next";
 import NetworkInput from "../components/NetworkInput.vue";
 import dotenv from "dotenv";
 import { ref } from "vue";
+import {
+    DETAILS_PANE_CONFIG,
+    readPaneWidth,
+    writePaneWidth,
+} from "../util-split-pane";
 
 const template = `
 services:
@@ -290,6 +295,10 @@ export default {
         CodeMirror,
         BModal,
     },
+    emits: [
+        "compose-focus-change",
+        "compose-details-width-change",
+    ],
     beforeRouteUpdate(to, from, next) {
         this.exitConfirm(next);
     },
@@ -344,6 +353,9 @@ export default {
             newContainerName: "",
             stopServiceStatusTimeout: false,
             stopDockerStatsTimeout: false,
+            detailsPaneWidth: DETAILS_PANE_CONFIG.defaultWidth,
+            isResizingDetailsPane: false,
+            composeFocusMode: false,
         };
     },
     computed: {
@@ -473,6 +485,9 @@ export default {
         }
     },
     mounted() {
+        this.detailsPaneWidth = readPaneWidth(window.localStorage, DETAILS_PANE_CONFIG);
+        this.$emit("compose-details-width-change", this.detailsPaneWidth);
+
         if (this.isAdd) {
             this.processing = false;
             this.isEditMode = true;
@@ -513,9 +528,64 @@ export default {
         this.requestDockerStats();
     },
     unmounted() {
-
+        this.stopDetailsResize();
+        this.$emit("compose-focus-change", false);
     },
     methods: {
+        toggleComposeFocusMode() {
+            this.composeFocusMode = !this.composeFocusMode;
+            this.$emit("compose-focus-change", this.composeFocusMode);
+        },
+
+        startDetailsResize(event) {
+            if (this.composeFocusMode) {
+                return;
+            }
+
+            this.isResizingDetailsPane = true;
+            document.body.classList.add("resizing-pane");
+            document.addEventListener("pointermove", this.handleDetailsResize);
+            document.addEventListener("pointerup", this.stopDetailsResize);
+            document.addEventListener("pointercancel", this.stopDetailsResize);
+            event.preventDefault();
+        },
+
+        handleDetailsResize(event) {
+            if (!this.isResizingDetailsPane) {
+                return;
+            }
+
+            const pageRight = this.$el.getBoundingClientRect().right;
+            this.setDetailsPaneWidth(pageRight - event.clientX);
+        },
+
+        stopDetailsResize() {
+            if (!this.isResizingDetailsPane) {
+                return;
+            }
+
+            this.isResizingDetailsPane = false;
+            document.body.classList.remove("resizing-pane");
+            document.removeEventListener("pointermove", this.handleDetailsResize);
+            document.removeEventListener("pointerup", this.stopDetailsResize);
+            document.removeEventListener("pointercancel", this.stopDetailsResize);
+        },
+
+        setDetailsPaneWidth(width) {
+            this.detailsPaneWidth = writePaneWidth(window.localStorage, DETAILS_PANE_CONFIG, width);
+            this.$emit("compose-details-width-change", this.detailsPaneWidth);
+        },
+
+        handleDetailsResizeKeydown(event) {
+            if (event.key === "ArrowLeft") {
+                this.setDetailsPaneWidth(this.detailsPaneWidth + 16);
+                event.preventDefault();
+            } else if (event.key === "ArrowRight") {
+                this.setDetailsPaneWidth(this.detailsPaneWidth - 16);
+                event.preventDefault();
+            }
+        },
+
         startServiceStatusTimeout() {
             clearTimeout(serviceStatusTimeout);
             serviceStatusTimeout = setTimeout(async () => {

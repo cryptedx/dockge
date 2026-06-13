@@ -114,6 +114,11 @@ optgroup {
     padding-right: 20px;
 }
 
+body.resizing-pane {
+    cursor: col-resize;
+    user-select: none;
+}
+
 .btn-sm {
     border-radius: 25px;
 }

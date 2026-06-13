@@ -110,7 +110,7 @@
                         />
                     </div>
 
-                    <div v-if="isEditMode && yamlError" class="alert alert-danger py-2 mb-3">
+                    <div v-if="isEditMode && yamlError" class="alert alert-danger py-2 mb-3" role="alert">
                         {{ yamlError }}
                     </div>
                 </section>
@@ -123,6 +123,7 @@
                     role="separator"
                     aria-orientation="vertical"
                     :aria-label="$t('resizeDetailsPane')"
+                    aria-controls="compose-details-pane"
                     :aria-valuemin="detailsPaneConfig.minWidth"
                     :aria-valuemax="detailsPaneConfig.maxWidth"
                     :aria-valuenow="detailsPaneWidth"
@@ -132,6 +133,7 @@
 
                 <aside
                     v-if="!composeFocusMode"
+                    id="compose-details-pane"
                     class="compose-details-pane"
                     :style="{ width: `${detailsPaneWidth}px` }"
                 >
@@ -935,28 +937,34 @@ export default {
 }
 
 .compose-workbench {
-    display: flex;
     align-items: stretch;
+    display: flex;
     min-width: 0;
 }
 
 .compose-editor-pane {
     flex: 1 1 auto;
-    min-width: 0;
+    min-width: 480px;
+    padding-right: 12px;
 }
 
 .compose-editor-header {
-    display: flex;
     align-items: center;
+    display: flex;
+    gap: 12px;
     justify-content: space-between;
-    gap: 0.75rem;
     margin-bottom: 1rem;
+    min-width: 0;
 }
 
 .compose-details-pane {
     flex: 0 0 auto;
     min-width: 0;
-    padding-left: 0.75rem;
+    padding-left: 12px;
+}
+
+.compose-details-section {
+    min-width: 0;
 }
 
 .compose-yaml-editor,
@@ -964,17 +972,31 @@ export default {
     min-width: 0;
 }
 
-.compose-focus-mode .compose-editor-pane {
-    flex-basis: 100%;
+.compose-yaml-editor :deep(.cm-editor) {
+    min-height: calc(100vh - 320px);
+}
+
+.compose-env-editor :deep(.cm-editor) {
+    min-height: 180px;
+}
+
+.compose-focus-mode {
+    .compose-editor-pane {
+        min-width: 0;
+        padding-right: 0;
+    }
+
+    .compose-yaml-editor :deep(.cm-editor) {
+        min-height: calc(100vh - 260px);
+    }
 }
 
 .pane-resizer {
     flex: 0 0 10px;
-    align-self: stretch;
     border: 0;
-    border-radius: 0;
     background: transparent;
     cursor: col-resize;
+    min-height: calc(100vh - 240px);
     padding: 0;
     position: relative;
 }
@@ -997,6 +1019,30 @@ export default {
 .pane-resizer:focus-visible {
     outline: 2px solid var(--bs-primary);
     outline-offset: 2px;
+}
+
+@media (max-width: 991.98px) {
+    .compose-workbench {
+        display: block;
+    }
+
+    .compose-editor-pane {
+        min-width: 0;
+        padding-right: 0;
+    }
+
+    .compose-details-pane {
+        padding-left: 0;
+        width: auto !important;
+    }
+
+    .pane-resizer {
+        display: none;
+    }
+
+    .compose-yaml-editor :deep(.cm-editor) {
+        min-height: 55vh;
+    }
 }
 
 .agent-name {

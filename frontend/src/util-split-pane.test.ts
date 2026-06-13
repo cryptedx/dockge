@@ -54,8 +54,24 @@ test("readPaneWidth returns defaults for missing and invalid values", () => {
     storage.setItem(STACK_PANE_CONFIG.storageKey, "not-a-number");
     assert.equal(readPaneWidth(storage, STACK_PANE_CONFIG), 260);
 
+    storage.setItem(STACK_PANE_CONFIG.storageKey, "");
+    assert.equal(readPaneWidth(storage, STACK_PANE_CONFIG), 260);
+
+    storage.setItem(STACK_PANE_CONFIG.storageKey, "   ");
+    assert.equal(readPaneWidth(storage, STACK_PANE_CONFIG), 260);
+
     storage.setItem(STACK_PANE_CONFIG.storageKey, "900");
     assert.equal(readPaneWidth(storage, STACK_PANE_CONFIG), 420);
+});
+
+test("readPaneWidth returns defaults when storage read fails", () => {
+    const storage: Pick<Storage, "getItem"> = {
+        getItem() {
+            throw new Error("storage unavailable");
+        },
+    };
+
+    assert.equal(readPaneWidth(storage, STACK_PANE_CONFIG), 260);
 });
 
 test("writePaneWidth persists clamped values", () => {

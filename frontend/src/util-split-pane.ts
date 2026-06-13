@@ -41,10 +41,17 @@ export function readPaneWidth(
         return config.defaultWidth;
     }
 
-    const storedValue = storage.getItem(config.storageKey);
-    const parsedWidth = storedValue === null ? config.defaultWidth : Number(storedValue);
+    try {
+        const storedValue = storage.getItem(config.storageKey);
 
-    return clampPaneWidth(parsedWidth, config);
+        if (storedValue === null || storedValue.trim() === "") {
+            return config.defaultWidth;
+        }
+
+        return clampPaneWidth(Number(storedValue), config);
+    } catch {
+        return config.defaultWidth;
+    }
 }
 
 export function writePaneWidth(

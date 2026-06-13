@@ -116,6 +116,7 @@
     "agentRemovedSuccessfully": "Agent removed successfully.",
     "removeAgent": "Remove Agent",
     "removeAgentMsg": "Are you sure you want to remove this agent?",
+    "resizeStackPane": "Resize stack pane",
     "GlobalEnv": "Global .env",
     "LongSyntaxNotSupported": "Long syntax is not supported here. Please use the YAML editor.",
     "name": "Dockge Agent Display name",

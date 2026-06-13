@@ -87,3 +87,10 @@ test("shouldCollapseSecondaryPanes protects the editor width", () => {
     assert.equal(shouldCollapseSecondaryPanes(900, 260, 320), true);
     assert.equal(shouldCollapseSecondaryPanes(1280, 260, 320), false);
 });
+
+test("shouldCollapseSecondaryPanes keeps the boundary width visible", () => {
+    const boundaryWidth = 260 + 320 + 480 + 48;
+
+    assert.equal(shouldCollapseSecondaryPanes(boundaryWidth, 260, 320), false);
+    assert.equal(shouldCollapseSecondaryPanes(boundaryWidth - 1, 260, 320), true);
+});

@@ -84,7 +84,10 @@
             <div
                 v-if="stack.isManagedByDockge"
                 class="compose-workbench"
-                :class="{ 'compose-focus-mode': composeFocusMode }"
+                :class="{
+                    'compose-focus-mode': composeFocusMode,
+                    'compose-details-stacked': shouldStackDetailsPane,
+                }"
             >
                 <section class="compose-editor-pane">
                     <div class="compose-editor-header">
@@ -116,7 +119,7 @@
                 </section>
 
                 <button
-                    v-if="!composeFocusMode"
+                    v-if="!composeFocusMode && !shouldStackDetailsPane"
                     class="pane-resizer details-resizer"
                     type="button"
                     tabindex="0"
@@ -132,7 +135,7 @@
                 ></button>
 
                 <aside
-                    v-if="!composeFocusMode"
+                    v-show="!composeFocusMode"
                     id="compose-details-pane"
                     class="compose-details-pane"
                     :style="{ width: `${detailsPaneWidth}px` }"
@@ -277,6 +280,7 @@ import { ref } from "vue";
 import {
     DETAILS_PANE_CONFIG,
     readPaneWidth,
+    shouldCollapseSecondaryPanes,
     writePaneWidth,
 } from "../util-split-pane";
 
@@ -364,9 +368,14 @@ export default {
             detailsPaneWidth: DETAILS_PANE_CONFIG.defaultWidth,
             isResizingDetailsPane: false,
             composeFocusMode: false,
+            windowWidth: window.innerWidth,
         };
     },
     computed: {
+        shouldStackDetailsPane() {
+            return !this.composeFocusMode && shouldCollapseSecondaryPanes(this.windowWidth, 0, this.detailsPaneWidth);
+        },
+
         endpointDisplay() {
             return this.$root.endpointDisplayFunction(this.endpoint);
         },
@@ -534,19 +543,25 @@ export default {
 
         this.requestServiceStatus();
         this.requestDockerStats();
+        window.addEventListener("resize", this.updateWindowWidth);
     },
     unmounted() {
         this.stopDetailsResize();
         this.$emit("compose-focus-change", false);
+        window.removeEventListener("resize", this.updateWindowWidth);
     },
     methods: {
+        updateWindowWidth() {
+            this.windowWidth = window.innerWidth;
+        },
+
         toggleComposeFocusMode() {
             this.composeFocusMode = !this.composeFocusMode;
             this.$emit("compose-focus-change", this.composeFocusMode);
         },
 
         startDetailsResize(event) {
-            if (this.composeFocusMode) {
+            if (this.composeFocusMode || this.shouldStackDetailsPane) {
                 return;
             }
 
@@ -981,6 +996,11 @@ export default {
 }
 
 .compose-focus-mode {
+    .details-resizer,
+    .compose-details-pane {
+        display: none !important;
+    }
+
     .compose-editor-pane {
         min-width: 0;
         padding-right: 0;
@@ -988,6 +1008,28 @@ export default {
 
     .compose-yaml-editor :deep(.cm-editor) {
         min-height: calc(100vh - 260px);
+    }
+}
+
+.compose-details-stacked {
+    display: block;
+
+    .compose-editor-pane {
+        min-width: 0;
+        padding-right: 0;
+    }
+
+    .compose-details-pane {
+        padding-left: 0;
+        width: auto !important;
+    }
+
+    .pane-resizer {
+        display: none;
+    }
+
+    .compose-yaml-editor :deep(.cm-editor) {
+        min-height: 55vh;
     }
 }
 

@@ -67,8 +67,12 @@ export default {
         };
     },
     computed: {
+        isComposeRoute() {
+            return this.$route.path.startsWith("/compose");
+        },
+
         routedChildListeners() {
-            if (this.$route.name === "DashboardHome" || this.$route.path.startsWith("/compose")) {
+            if (this.$route.name === "DashboardHome" || this.isComposeRoute) {
                 return {
                     "compose-focus-change": this.setComposeFocusMode,
                     "compose-details-width-change": this.setDetailsPaneWidthForLayout,
@@ -78,6 +82,10 @@ export default {
             return {};
         },
         shouldCollapseStackPane() {
+            if (!this.isComposeRoute) {
+                return false;
+            }
+
             return shouldCollapseSecondaryPanes(this.windowWidth, this.stackPaneWidth, this.detailsPaneWidthForLayout);
         },
     },

@@ -180,24 +180,18 @@
                             </div>
 
                             <div ref="containerList">
-                                <div
+                                <Container
                                     v-for="(service, name) in jsonConfig.services"
                                     :key="name"
-                                    :ref="element => setContainerCardRef(name, element)"
-                                    class="container-search-target"
-                                    :class="{ 'is-container-search-highlighted': highlightedContainerName === name }"
-                                >
-                                    <Container
-                                        :name="name"
-                                        :is-edit-mode="isEditMode"
-                                        :first="name === Object.keys(jsonConfig.services)[0]"
-                                        :serviceStatus="serviceStatusList[name]"
-                                        :dockerStats="dockerStats"
-                                        @start-service="startService"
-                                        @stop-service="stopService"
-                                        @restart-service="restartService"
-                                    />
-                                </div>
+                                    :name="name"
+                                    :is-edit-mode="isEditMode"
+                                    :first="name === Object.keys(jsonConfig.services)[0]"
+                                    :serviceStatus="serviceStatusList[name]"
+                                    :dockerStats="dockerStats"
+                                    @start-service="startService"
+                                    @stop-service="stopService"
+                                    @restart-service="restartService"
+                                />
                             </div>
                         </div>
 
@@ -279,58 +273,6 @@
             <BModal v-model="showDeleteDialog" :cancelTitle="$t('cancel')" :okTitle="$t('deleteStack')" okVariant="danger" @ok="deleteDialog">
                 {{ $t("deleteStackMsg") }}
             </BModal>
-
-            <transition name="container-search-fade">
-                <div v-if="showContainerSearch" class="container-search-backdrop" @mousedown.self="closeContainerSearch">
-                    <div class="container-search-dialog" role="dialog" aria-modal="true" aria-label="Search containers">
-                        <div class="container-search-input-row">
-                            <font-awesome-icon icon="search" class="container-search-icon" />
-                            <input
-                                ref="containerSearchInput"
-                                v-model="containerSearchQuery"
-                                class="container-search-input"
-                                type="search"
-                                placeholder="Container suchen"
-                                role="combobox"
-                                aria-controls="container-search-results"
-                                :aria-expanded="showContainerSearch"
-                                :aria-activedescendant="containerSearchActiveItemId"
-                                autocomplete="off"
-                                @keydown="handleContainerSearchKeydown"
-                            />
-                            <button class="btn btn-normal btn-sm container-search-close" type="button" aria-label="Close container search" @click="closeContainerSearch">
-                                <font-awesome-icon icon="times" />
-                            </button>
-                        </div>
-
-                        <div id="container-search-results" class="container-search-results" role="listbox">
-                            <button
-                                v-for="(item, index) in filteredContainerSearchItems"
-                                :id="getContainerSearchItemId(item.key)"
-                                :key="item.key"
-                                class="container-search-result"
-                                :class="{ 'is-active': index === containerSearchIndex }"
-                                type="button"
-                                role="option"
-                                :aria-selected="index === containerSearchIndex"
-                                @mouseenter="containerSearchIndex = index"
-                                @mousedown.prevent="selectContainerSearchItem(item.serviceName)"
-                            >
-                                <span class="container-search-result-name">{{ item.containerName }}</span>
-                                <span class="container-search-result-meta">
-                                    <span class="badge" :class="item.badgeClass">{{ item.status }}</span>
-                                    <span class="container-search-service">{{ item.serviceName }}</span>
-                                    <span v-if="item.image" class="container-search-image">{{ item.image }}</span>
-                                </span>
-                            </button>
-
-                            <div v-if="filteredContainerSearchItems.length === 0" class="container-search-empty">
-                                Keine Container gefunden
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </transition>
         </div>
     </transition>
 </template>
@@ -435,12 +377,6 @@ export default {
             combinedTerminalCols: COMBINED_TERMINAL_COLS,
             combinedTerminalCollapsed: false,
             combinedTerminalPanelStyle: {},
-            showContainerSearch: false,
-            containerSearchQuery: "",
-            containerSearchIndex: 0,
-            containerCardRefs: {},
-            highlightedContainerName: "",
-            highlightedContainerTimeout: null,
             stack: {
 
             },
@@ -466,54 +402,6 @@ export default {
 
         showCombinedTerminalPanel() {
             return !this.isEditMode && !this.composeFocusMode;
-        },
-
-        containerSearchItems() {
-            const services = this.jsonConfig.services || {};
-            const envServices = this.envsubstJSONConfig.services || {};
-
-            return Object.keys(services).flatMap((serviceName) => {
-                const service = envServices[serviceName] || services[serviceName] || {};
-                const image = service.image || "";
-                const statusEntries = this.serviceStatusList[serviceName] || [];
-
-                return statusEntries
-                    .filter(container => container?.name)
-                    .map((container, index) => {
-                        const containerName = container.name;
-                        const status = container.status || "N/A";
-
-                        return {
-                            key: `${serviceName}-${containerName}-${index}`,
-                            serviceName,
-                            containerName,
-                            image,
-                            status,
-                            badgeClass: this.getContainerStatusBadgeClass(status),
-                            searchText: `${containerName} ${serviceName} ${image} ${status}`.toLowerCase(),
-                        };
-                    });
-            });
-        },
-
-        filteredContainerSearchItems() {
-            const query = this.containerSearchQuery.trim().toLowerCase();
-
-            if (!query) {
-                return this.containerSearchItems;
-            }
-
-            return this.containerSearchItems.filter(item => item.searchText.includes(query));
-        },
-
-        containerSearchActiveItemId() {
-            return this.filteredContainerSearchItems[this.containerSearchIndex]
-                ? this.getContainerSearchItemId(this.filteredContainerSearchItems[this.containerSearchIndex].key)
-                : undefined;
-        },
-
-        canOpenContainerSearch() {
-            return this.stack.isManagedByDockge && this.containerSearchItems.length > 0;
         },
 
         endpointDisplay() {
@@ -598,10 +486,6 @@ export default {
         },
     },
     watch: {
-        containerSearchQuery() {
-            this.containerSearchIndex = 0;
-        },
-
         "stack.composeYAML": {
             handler() {
                 if (this.editorFocus) {
@@ -690,7 +574,6 @@ export default {
         this.$nextTick(this.updateCombinedTerminalPanelBounds);
         window.addEventListener("resize", this.updateWindowWidth);
         window.addEventListener("keydown", this.handleGlobalTerminalShortcut);
-        window.addEventListener("keydown", this.handleGlobalContainerSearchShortcut, true);
         window.addEventListener("scroll", this.updateCombinedTerminalPanelBounds, true);
     },
     updated() {
@@ -701,9 +584,7 @@ export default {
         this.$emit("compose-focus-change", false);
         window.removeEventListener("resize", this.updateWindowWidth);
         window.removeEventListener("keydown", this.handleGlobalTerminalShortcut);
-        window.removeEventListener("keydown", this.handleGlobalContainerSearchShortcut, true);
         window.removeEventListener("scroll", this.updateCombinedTerminalPanelBounds, true);
-        clearTimeout(this.highlightedContainerTimeout);
     },
     methods: {
         updateWindowWidth() {
@@ -733,14 +614,6 @@ export default {
             this.composeFocusMode = !this.composeFocusMode;
             this.$emit("compose-focus-change", this.composeFocusMode);
             this.$nextTick(this.updateCombinedTerminalPanelBounds);
-        },
-
-        setContainerCardRef(name, element) {
-            if (element) {
-                this.containerCardRefs[name] = element;
-            } else {
-                delete this.containerCardRefs[name];
-            }
         },
 
         startDetailsResize(event) {
@@ -886,118 +759,6 @@ export default {
 
             event.preventDefault();
             this.toggleCombinedTerminalPanel();
-        },
-
-        handleGlobalContainerSearchShortcut(event) {
-            const isContainerSearchShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k";
-
-            if (!isContainerSearchShortcut || !this.canOpenContainerSearch) {
-                return;
-            }
-
-            event.preventDefault();
-            this.openContainerSearch();
-        },
-
-        openContainerSearch() {
-            if (!this.canOpenContainerSearch) {
-                return;
-            }
-
-            this.showContainerSearch = true;
-            this.containerSearchQuery = "";
-            this.containerSearchIndex = 0;
-
-            this.$nextTick(() => {
-                this.$refs.containerSearchInput?.focus();
-            });
-        },
-
-        closeContainerSearch() {
-            this.showContainerSearch = false;
-        },
-
-        handleContainerSearchKeydown(event) {
-            if (event.key === "ArrowDown") {
-                this.moveContainerSearchSelection(1);
-                event.preventDefault();
-            } else if (event.key === "ArrowUp") {
-                this.moveContainerSearchSelection(-1);
-                event.preventDefault();
-            } else if (event.key === "Enter") {
-                const item = this.filteredContainerSearchItems[this.containerSearchIndex];
-
-                if (item) {
-                    this.selectContainerSearchItem(item.serviceName);
-                }
-
-                event.preventDefault();
-            } else if (event.key === "Escape") {
-                this.closeContainerSearch();
-                event.preventDefault();
-            }
-        },
-
-        moveContainerSearchSelection(delta) {
-            const itemCount = this.filteredContainerSearchItems.length;
-
-            if (itemCount === 0) {
-                this.containerSearchIndex = 0;
-                return;
-            }
-
-            this.containerSearchIndex = (this.containerSearchIndex + delta + itemCount) % itemCount;
-        },
-
-        selectContainerSearchItem(serviceName) {
-            this.closeContainerSearch();
-            this.scrollToContainer(serviceName);
-        },
-
-        scrollToContainer(serviceName) {
-            const wasFocusMode = this.composeFocusMode;
-            this.composeFocusMode = false;
-
-            if (wasFocusMode) {
-                this.$emit("compose-focus-change", false);
-            }
-
-            this.$nextTick(() => {
-                const element = this.containerCardRefs[serviceName];
-
-                if (!element) {
-                    return;
-                }
-
-                element.scrollIntoView({
-                    block: "center",
-                    behavior: "smooth"
-                });
-
-                this.highlightedContainerName = serviceName;
-                clearTimeout(this.highlightedContainerTimeout);
-                this.highlightedContainerTimeout = setTimeout(() => {
-                    if (this.highlightedContainerName === serviceName) {
-                        this.highlightedContainerName = "";
-                    }
-                }, 1800);
-            });
-        },
-
-        getContainerSearchItemId(name) {
-            return `container-search-result-${name.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-        },
-
-        getContainerStatusBadgeClass(status) {
-            if (status === "running" || status === "healthy") {
-                return "bg-primary";
-            }
-
-            if (status === "unhealthy") {
-                return "bg-danger";
-            }
-
-            return "bg-secondary";
         },
 
         loadStack() {
@@ -1314,16 +1075,6 @@ export default {
     min-width: 0;
 }
 
-.container-search-target {
-    border-radius: 18px;
-    transition: box-shadow 180ms ease, transform 180ms ease;
-}
-
-.container-search-target.is-container-search-highlighted {
-    box-shadow: 0 0 0 3px rgba(116, 194, 255, 0.82), 0 0 32px rgba(116, 194, 255, 0.28);
-    transform: translateY(-1px);
-}
-
 .compose-terminal-panel {
     background: $dark-bg;
     border-radius: 18px 18px 0 0;
@@ -1365,140 +1116,6 @@ export default {
 .compose-bottom-terminal {
     height: clamp(320px, 34vh, 460px);
     margin-bottom: 0;
-}
-
-.container-search-backdrop {
-    align-items: flex-start;
-    background: rgba(0, 0, 0, 0.42);
-    display: flex;
-    inset: 0;
-    justify-content: center;
-    padding: 92px 16px 24px;
-    position: fixed;
-    z-index: 3000;
-}
-
-.container-search-dialog {
-    background: $dark-header-bg;
-    border-radius: 20px;
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.44), 0 0 0 1px rgba(255, 255, 255, 0.08);
-    max-height: min(560px, calc(100vh - 124px));
-    overflow: hidden;
-    width: min(560px, calc(100vw - 32px));
-}
-
-.container-search-input-row {
-    align-items: center;
-    display: grid;
-    gap: 10px;
-    grid-template-columns: 20px minmax(0, 1fr) 40px;
-    padding: 12px;
-}
-
-.container-search-icon {
-    color: $dark-font-color3;
-    justify-self: center;
-}
-
-.container-search-input {
-    background: $dark-bg2;
-    border: 0;
-    border-radius: 12px;
-    color: $dark-font-color;
-    min-height: 44px;
-    min-width: 0;
-    outline: 0;
-    padding: 0 14px;
-}
-
-.container-search-input:focus {
-    box-shadow: 0 0 0 2px rgba(116, 194, 255, 0.72);
-}
-
-.container-search-close {
-    align-items: center;
-    display: inline-flex;
-    justify-content: center;
-    min-height: 40px;
-    min-width: 40px;
-    padding: 0;
-}
-
-.container-search-results {
-    max-height: min(450px, calc(100vh - 204px));
-    overflow-y: auto;
-    padding: 0 8px 8px;
-}
-
-.container-search-result {
-    align-items: center;
-    background: transparent;
-    border: 0;
-    border-radius: 12px;
-    color: $dark-font-color;
-    display: flex;
-    gap: 16px;
-    justify-content: space-between;
-    min-height: 58px;
-    padding: 10px 12px;
-    text-align: left;
-    transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
-    width: 100%;
-}
-
-.container-search-result.is-active {
-    background: rgba(116, 194, 255, 0.14);
-    color: #fff;
-    transform: translateY(-1px);
-}
-
-.container-search-result-name {
-    font-weight: 700;
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.container-search-result-meta {
-    align-items: center;
-    display: flex;
-    flex: 0 1 auto;
-    gap: 8px;
-    justify-content: flex-end;
-    min-width: 0;
-}
-
-.container-search-service {
-    color: $dark-font-color3;
-    font-size: 0.78rem;
-    font-weight: 700;
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.container-search-image {
-    color: $dark-font-color3;
-    font-size: 0.82rem;
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.container-search-empty {
-    color: $dark-font-color3;
-    padding: 18px 12px 20px;
-}
-
-.container-search-fade-enter-active,
-.container-search-fade-leave-active {
-    transition: opacity 150ms ease;
-}
-
-.container-search-fade-enter-from,
-.container-search-fade-leave-to {
-    opacity: 0;
 }
 
 .compose-yaml-editor,

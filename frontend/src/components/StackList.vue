@@ -12,14 +12,21 @@
 
                 <div class="placeholder"></div>
                 <div class="search-wrapper">
-                    <a v-if="searchText == ''" class="search-icon">
+                    <a v-if="searchText == ''" class="search-icon" @click="openProjectSearch">
                         <font-awesome-icon icon="search" />
                     </a>
                     <a v-if="searchText != ''" class="search-icon" style="cursor: pointer" @click="clearSearchText">
                         <font-awesome-icon icon="times" />
                     </a>
-                    <form>
-                        <input v-model="searchText" class="form-control search-input" autocomplete="off" />
+                    <form @submit.prevent="openProjectSearchFromInput">
+                        <input
+                            ref="stackSearchInput"
+                            v-model="searchText"
+                            class="form-control search-input"
+                            autocomplete="off"
+                            :placeholder="stackSearchPlaceholder"
+                            @focus="openProjectSearchFromInput"
+                        />
                     </form>
                 </div>
             </div>
@@ -72,6 +79,57 @@
         </div>
     </div>
 
+    <transition name="project-search-fade">
+        <div v-if="showProjectSearch" class="project-search-backdrop" @mousedown.self="closeProjectSearch">
+            <div class="project-search-dialog" role="dialog" aria-modal="true" aria-label="Compose-Projekte suchen">
+                <div class="project-search-input-row">
+                    <font-awesome-icon icon="search" class="project-search-icon" />
+                    <input
+                        ref="projectSearchInput"
+                        v-model="projectSearchQuery"
+                        class="project-search-input"
+                        type="search"
+                        placeholder="Compose-Projekt suchen"
+                        role="combobox"
+                        aria-controls="project-search-results"
+                        :aria-expanded="showProjectSearch"
+                        :aria-activedescendant="projectSearchActiveItemId"
+                        autocomplete="off"
+                        @keydown="handleProjectSearchKeydown"
+                    />
+                    <button class="btn btn-normal btn-sm project-search-close" type="button" aria-label="Projektsuche schliessen" @click="closeProjectSearch">
+                        <font-awesome-icon icon="times" />
+                    </button>
+                </div>
+
+                <div id="project-search-results" class="project-search-results" role="listbox">
+                    <button
+                        v-for="(item, index) in filteredProjectSearchItems"
+                        :id="getProjectSearchItemId(item.key)"
+                        :key="item.key"
+                        class="project-search-result"
+                        :class="{ 'is-active': index === projectSearchIndex }"
+                        type="button"
+                        role="option"
+                        :aria-selected="index === projectSearchIndex"
+                        @mouseenter="projectSearchIndex = index"
+                        @mousedown.prevent="selectProjectSearchItem(item)"
+                    >
+                        <span class="project-search-result-name">{{ item.name }}</span>
+                        <span class="project-search-result-meta">
+                            <span class="badge" :class="item.badgeClass">{{ item.statusLabel }}</span>
+                            <span class="project-search-endpoint">{{ item.endpointLabel }}</span>
+                        </span>
+                    </button>
+
+                    <div v-if="filteredProjectSearchItems.length === 0" class="project-search-empty">
+                        Keine Compose-Projekte gefunden
+                    </div>
+                </div>
+            </div>
+        </div>
+    </transition>
+
     <Confirm ref="confirmPause" :yes-text="$t('Yes')" :no-text="$t('No')" @yes="pauseSelected">
         {{ $t("pauseStackMsg") }}
     </Confirm>
@@ -80,7 +138,7 @@
 <script>
 import Confirm from "../components/Confirm.vue";
 import StackListItem from "../components/StackListItem.vue";
-import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, UNKNOWN } from "../../../common/util-common";
+import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, UNKNOWN, statusColor, statusNameShort } from "../../../common/util-common";
 
 export default {
     components: {
@@ -96,6 +154,9 @@ export default {
     data() {
         return {
             searchText: "",
+            showProjectSearch: false,
+            projectSearchQuery: "",
+            projectSearchIndex: 0,
             selectMode: false,
             selectAll: false,
             disableSelectAllWatcher: false,
@@ -231,6 +292,65 @@ export default {
             return document.body.classList.contains("dark");
         },
 
+        stackSearchPlaceholder() {
+            return `Suchen (${this.shortcutLabel})`;
+        },
+
+        shortcutLabel() {
+            const platform = navigator.userAgentData?.platform || navigator.platform || "";
+            return /mac|iphone|ipad|ipod/i.test(platform) ? "CMD+K" : "STRG+K";
+        },
+
+        projectSearchItems() {
+            const stacks = Object.values(this.$root.completeStackList || {});
+
+            return stacks.map((stack, index) => {
+                const endpoint = stack.endpoint || "";
+                const endpointLabel = endpoint ? this.$root.endpointDisplayFunction(endpoint) || endpoint : this.$t("currentEndpoint");
+                const tags = Array.isArray(stack.tags) ? stack.tags : [];
+                const tagText = tags
+                    .map(tag => `${tag.name || ""} ${tag.value || ""}`)
+                    .join(" ");
+                const statusLabel = this.$t(statusNameShort(stack.status));
+
+                return {
+                    key: `${stack.name}-${endpoint || "current"}-${stack.id ?? index}`,
+                    name: stack.name,
+                    endpoint,
+                    endpointLabel,
+                    statusLabel,
+                    badgeClass: `bg-${statusColor(stack.status)}`,
+                    searchText: `${stack.name} ${endpoint} ${endpointLabel} ${statusLabel} ${tagText}`.toLowerCase(),
+                };
+            }).sort((a, b) => {
+                if (a.endpoint === "" && b.endpoint !== "") {
+                    return -1;
+                }
+
+                if (a.endpoint !== "" && b.endpoint === "") {
+                    return 1;
+                }
+
+                return `${a.endpointLabel} ${a.name}`.localeCompare(`${b.endpointLabel} ${b.name}`);
+            });
+        },
+
+        filteredProjectSearchItems() {
+            const query = this.projectSearchQuery.trim().toLowerCase();
+
+            if (!query) {
+                return this.projectSearchItems;
+            }
+
+            return this.projectSearchItems.filter(item => item.searchText.includes(query));
+        },
+
+        projectSearchActiveItemId() {
+            return this.filteredProjectSearchItems[this.projectSearchIndex]
+                ? this.getProjectSearchItemId(this.filteredProjectSearchItems[this.projectSearchIndex].key)
+                : undefined;
+        },
+
         stackListStyle() {
             //let listHeaderHeight = 107;
             let listHeaderHeight = 60;
@@ -257,6 +377,9 @@ export default {
         }
     },
     watch: {
+        projectSearchQuery() {
+            this.projectSearchIndex = 0;
+        },
         searchText() {
             for (let stack of this.agentStackList) {
                 if (!this.selectedStacks[stack.id]) {
@@ -290,9 +413,11 @@ export default {
     },
     mounted() {
         window.addEventListener("scroll", this.onScroll);
+        window.addEventListener("keydown", this.handleGlobalProjectSearchShortcut, true);
     },
     beforeUnmount() {
         window.removeEventListener("scroll", this.onScroll);
+        window.removeEventListener("keydown", this.handleGlobalProjectSearchShortcut, true);
     },
     methods: {
         /**
@@ -313,6 +438,82 @@ export default {
          */
         clearSearchText() {
             this.searchText = "";
+        },
+        openProjectSearchFromInput() {
+            this.openProjectSearch(this.searchText);
+        },
+        handleGlobalProjectSearchShortcut(event) {
+            const isProjectSearchShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k";
+
+            if (!isProjectSearchShortcut || this.projectSearchItems.length === 0) {
+                return;
+            }
+
+            event.preventDefault();
+            if (this.showProjectSearch) {
+                this.$refs.projectSearchInput?.focus();
+                this.$refs.projectSearchInput?.select();
+                return;
+            }
+
+            this.openProjectSearch();
+        },
+        openProjectSearch(query = "") {
+            if (this.projectSearchItems.length === 0) {
+                return;
+            }
+
+            this.showProjectSearch = true;
+            this.projectSearchQuery = query;
+            this.projectSearchIndex = 0;
+
+            this.$nextTick(() => {
+                this.$refs.projectSearchInput?.focus();
+                this.$refs.projectSearchInput?.select();
+            });
+        },
+        closeProjectSearch() {
+            this.showProjectSearch = false;
+        },
+        handleProjectSearchKeydown(event) {
+            if (event.key === "ArrowDown") {
+                this.moveProjectSearchSelection(1);
+                event.preventDefault();
+            } else if (event.key === "ArrowUp") {
+                this.moveProjectSearchSelection(-1);
+                event.preventDefault();
+            } else if (event.key === "Enter") {
+                const item = this.filteredProjectSearchItems[this.projectSearchIndex];
+
+                if (item) {
+                    this.selectProjectSearchItem(item);
+                }
+
+                event.preventDefault();
+            } else if (event.key === "Escape") {
+                this.closeProjectSearch();
+                event.preventDefault();
+            }
+        },
+        moveProjectSearchSelection(delta) {
+            const itemCount = this.filteredProjectSearchItems.length;
+
+            if (itemCount === 0) {
+                this.projectSearchIndex = 0;
+                return;
+            }
+
+            this.projectSearchIndex = (this.projectSearchIndex + delta + itemCount) % itemCount;
+        },
+        selectProjectSearchItem(item) {
+            const endpointPath = item.endpoint ? `/${encodeURIComponent(item.endpoint)}` : "";
+
+            this.closeProjectSearch();
+            this.searchText = "";
+            this.$router.push(`/compose/${encodeURIComponent(item.name)}${endpointPath}`);
+        },
+        getProjectSearchItemId(name) {
+            return `project-search-result-${name.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
         },
         /**
          * Update the StackList Filter
@@ -441,11 +642,12 @@ export default {
 .search-icon {
     padding: 10px;
     color: #c0c0c0;
+    cursor: pointer;
 
     // Clear filter button (X)
     svg[data-icon="times"] {
         cursor: pointer;
-        transition: all ease-in-out 0.1s;
+        transition: opacity 100ms ease-in-out;
 
         &:hover {
             opacity: 0.5;
@@ -455,6 +657,144 @@ export default {
 
 .search-input {
     max-width: 15em;
+}
+
+.project-search-backdrop {
+    align-items: flex-start;
+    background: rgba(0, 0, 0, 0.42);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 92px 16px 24px;
+    position: fixed;
+    z-index: 3000;
+}
+
+.project-search-dialog {
+    background: $dark-header-bg;
+    border-radius: 20px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.44), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    max-height: min(560px, calc(100vh - 124px));
+    overflow: hidden;
+    width: min(620px, calc(100vw - 32px));
+}
+
+.project-search-input-row {
+    align-items: center;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 20px minmax(0, 1fr) 40px;
+    padding: 12px;
+}
+
+.project-search-icon {
+    color: $dark-font-color3;
+    justify-self: center;
+}
+
+.project-search-input {
+    background: $dark-bg2;
+    border: 0;
+    border-radius: 12px;
+    color: $dark-font-color;
+    min-height: 44px;
+    min-width: 0;
+    outline: 0;
+    padding: 0 14px;
+}
+
+.project-search-input:focus {
+    box-shadow: 0 0 0 2px rgba(116, 194, 255, 0.72);
+}
+
+.project-search-close {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-height: 40px;
+    min-width: 40px;
+    padding: 0;
+}
+
+.project-search-results {
+    max-height: min(450px, calc(100vh - 204px));
+    overflow-y: auto;
+    padding: 0 8px 8px;
+}
+
+.project-search-result {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 12px;
+    color: $dark-font-color;
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+    min-height: 58px;
+    padding: 10px 12px;
+    text-align: left;
+    transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+    width: 100%;
+}
+
+.project-search-result.is-active {
+    background: rgba(116, 194, 255, 0.14);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.project-search-result-name {
+    font-weight: 700;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.project-search-result-meta {
+    align-items: center;
+    display: flex;
+    flex: 0 1 auto;
+    gap: 8px;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+.project-search-endpoint {
+    color: $dark-font-color3;
+    font-size: 0.82rem;
+    font-weight: 700;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.project-search-empty {
+    color: $dark-font-color3;
+    padding: 18px 12px 20px;
+}
+
+.project-search-fade-enter-active,
+.project-search-fade-leave-active {
+    transition: opacity 150ms ease;
+}
+
+.project-search-fade-enter-from,
+.project-search-fade-leave-to {
+    opacity: 0;
+}
+
+@media (max-width: 520px) {
+    .project-search-result {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .project-search-result-meta {
+        justify-content: flex-start;
+        width: 100%;
+    }
 }
 
 .stack-item {

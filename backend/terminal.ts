@@ -1,14 +1,12 @@
 import { DockgeServer } from "./dockge-server";
 import * as os from "node:os";
 import * as pty from "@homebridge/node-pty-prebuilt-multiarch";
-import { LimitQueue } from "./utils/limit-queue";
 import { DockgeSocket } from "./util-server";
 import {
     PROGRESS_TERMINAL_ROWS,
     TERMINAL_COLS,
     TERMINAL_ROWS
 } from "../common/util-common";
-import { sync as commandExistsSync } from "command-exists";
 import { log } from "./log";
 
 /**
@@ -19,7 +17,7 @@ export class Terminal {
 
     protected _ptyProcess? : pty.IPty;
     protected server : DockgeServer;
-    protected buffer : LimitQueue<string> = new LimitQueue(100);
+    protected buffer : string[] = [];
     protected _name : string;
 
     protected file : string;
@@ -121,7 +119,10 @@ export class Terminal {
 
             // On Data
             this._ptyProcess.onData((data) => {
-                this.buffer.pushItem(data);
+                this.buffer.push(data);
+                if (this.buffer.length > 100) {
+                    this.buffer.shift();
+                }
 
                 for (const socketID in this.socketList) {
                     const socket = this.socketList[socketID];
@@ -276,11 +277,7 @@ export class MainTerminal extends InteractiveTerminal {
         }
 
         if (os.platform() === "win32") {
-            if (commandExistsSync("pwsh.exe")) {
-                shell = "pwsh.exe";
-            } else {
-                shell = "powershell.exe";
-            }
+            shell = "powershell.exe";
         } else {
             shell = "bash";
         }

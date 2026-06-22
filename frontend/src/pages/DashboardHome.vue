@@ -121,10 +121,11 @@
 
 <script>
 import { statusNameShort } from "../../../common/util-common";
+import { BModal } from "bootstrap-vue-next";
 
 export default {
     components: {
-
+        BModal,
     },
     props: {
         calculatedHeight: {

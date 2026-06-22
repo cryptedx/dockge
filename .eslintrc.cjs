@@ -15,7 +15,6 @@ module.exports = {
     },
     plugins: [
         "@typescript-eslint",
-        "jsdoc"
     ],
     rules: {
         "yoda": "error",

@@ -295,7 +295,7 @@ import {
     PROGRESS_TERMINAL_ROWS,
     RUNNING
 } from "../../../common/util-common";
-import { BModal } from "bootstrap-vue-next";
+import { BDropdown, BDropdownItem, BModal } from "bootstrap-vue-next";
 import NetworkInput from "../components/NetworkInput.vue";
 import dotenv from "dotenv";
 import { ref } from "vue";
@@ -327,6 +327,8 @@ export default {
         NetworkInput,
         FontAwesomeIcon,
         CodeMirror,
+        BDropdown,
+        BDropdownItem,
         BModal,
     },
     beforeRouteUpdate(to, from, next) {

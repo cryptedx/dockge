@@ -2,14 +2,6 @@
     <div class="shadow-box mb-3" :style="boxStyle">
         <div class="list-header">
             <div class="header-top">
-                <!-- TODO -->
-                <button
-                    v-if="false" class="btn btn-outline-normal ms-2" :class="{ 'active': selectMode }" type="button"
-                    @click="selectMode = !selectMode"
-                >
-                    {{ $t("Select") }}
-                </button>
-
                 <div class="placeholder"></div>
                 <div class="search-wrapper">
                     <a v-if="searchText == ''" class="search-icon" @click="openProjectSearch">
@@ -30,29 +22,6 @@
                     </form>
                 </div>
             </div>
-
-            <!-- TODO -->
-            <div v-if="false" class="header-filter">
-                <!--<StackListFilter :filterState="filterState" @update-filter="updateFilter" />-->
-            </div>
-
-            <!-- TODO: Selection Controls -->
-            <div v-if="selectMode && false" class="selection-controls px-2 pt-2">
-                <input v-model="selectAll" class="form-check-input select-input" type="checkbox" />
-
-                <button class="btn-outline-normal" @click="pauseDialog">
-                    <font-awesome-icon icon="pause" size="sm" /> {{
-                        $t("Pause") }}
-                </button>
-                <button class="btn-outline-normal" @click="resumeSelected">
-                    <font-awesome-icon icon="play" size="sm" />
-                    {{ $t("Resume") }}
-                </button>
-
-                <span v-if="selectedStackCount > 0">
-                    {{ $t("selectedStackCount", [selectedStackCount]) }}
-                </span>
-            </div>
         </div>
         <div ref="stackList" class="stack-list" :class="{ scrollbar: scrollbar }" :style="stackListStyle">
             <div v-if="agentStackList[0] && agentStackList[0].stacks.length === 0" class="text-center mt-3">
@@ -71,9 +40,7 @@
                     <span v-else>{{ agent.endpoint }}</span>
                 </div>
                 <StackListItem
-                    v-for="(item, index) in agent.stacks"
-                    v-show="$root.agentCount === 1 || !closedAgents.get(agent.endpoint)" :key="index" :stack="item" :isSelectMode="selectMode"
-                    :isSelected="isSelected" :select="select" :deselect="deselect"
+                    v-for="(item, index) in agent.stacks" v-show="$root.agentCount === 1 || !closedAgents.get(agent.endpoint)" :key="index" :stack="item"
                 />
             </div>
         </div>
@@ -129,20 +96,14 @@
             </div>
         </div>
     </transition>
-
-    <Confirm ref="confirmPause" :yes-text="$t('Yes')" :no-text="$t('No')" @yes="pauseSelected">
-        {{ $t("pauseStackMsg") }}
-    </Confirm>
 </template>
 
 <script>
-import Confirm from "../components/Confirm.vue";
 import StackListItem from "../components/StackListItem.vue";
 import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, UNKNOWN, statusColor, statusNameShort } from "../../../common/util-common";
 
 export default {
     components: {
-        Confirm,
         StackListItem,
     },
     props: {
@@ -157,16 +118,7 @@ export default {
             showProjectSearch: false,
             projectSearchQuery: "",
             projectSearchIndex: 0,
-            selectMode: false,
-            selectAll: false,
-            disableSelectAllWatcher: false,
-            selectedStacks: {},
             windowTop: 0,
-            filterState: {
-                status: null,
-                active: null,
-                tags: null,
-            },
             closedAgents: new Map(),
         };
     },
@@ -209,21 +161,7 @@ export default {
                             || tag.value?.toLowerCase().includes(loweredSearchText));
                 }
 
-                // filter by active
-                let activeMatch = true;
-                if (this.filterState.active != null && this.filterState.active.length > 0) {
-                    activeMatch = this.filterState.active.includes(stack.active);
-                }
-
-                // filter by tags
-                let tagsMatch = true;
-                if (this.filterState.tags != null && this.filterState.tags.length > 0) {
-                    tagsMatch = stack.tags.map(tag => tag.tag_id) // convert to array of tag IDs
-                        .filter(stackTagId => this.filterState.tags.includes(stackTagId)) // perform Array Intersaction between filter and stack's tags
-                        .length > 0;
-                }
-
-                return searchTextMatch && activeMatch && tagsMatch;
+                return searchTextMatch;
             });
 
             result.sort((m1, m2) => {
@@ -352,63 +290,14 @@ export default {
         },
 
         stackListStyle() {
-            //let listHeaderHeight = 107;
-            let listHeaderHeight = 60;
-
-            if (this.selectMode) {
-                listHeaderHeight += 42;
-            }
-
             return {
-                "height": `calc(100% - ${listHeaderHeight}px)`
+                "height": "calc(100% - 60px)"
             };
-        },
-
-        selectedStackCount() {
-            return Object.keys(this.selectedStacks).length;
-        },
-
-        /**
-         * Determines if any filters are active.
-         * @returns {boolean} True if any filter is active, false otherwise.
-         */
-        filtersActive() {
-            return this.filterState.status != null || this.filterState.active != null || this.filterState.tags != null || this.searchText !== "";
         }
     },
     watch: {
         projectSearchQuery() {
             this.projectSearchIndex = 0;
-        },
-        searchText() {
-            for (let stack of this.agentStackList) {
-                if (!this.selectedStacks[stack.id]) {
-                    if (this.selectAll) {
-                        this.disableSelectAllWatcher = true;
-                        this.selectAll = false;
-                    }
-                    break;
-                }
-            }
-        },
-        selectAll() {
-            if (!this.disableSelectAllWatcher) {
-                this.selectedStacks = {};
-
-                if (this.selectAll) {
-                    this.agentStackList.forEach((item) => {
-                        this.selectedStacks[item.id] = true;
-                    });
-                }
-            } else {
-                this.disableSelectAllWatcher = false;
-            }
-        },
-        selectMode() {
-            if (!this.selectMode) {
-                this.selectAll = false;
-                this.selectedStacks = {};
-            }
         },
     },
     mounted() {
@@ -515,75 +404,6 @@ export default {
         getProjectSearchItemId(name) {
             return `project-search-result-${name.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
         },
-        /**
-         * Update the StackList Filter
-         * @param {object} newFilter Object with new filter
-         * @returns {void}
-         */
-        updateFilter(newFilter) {
-            this.filterState = newFilter;
-        },
-        /**
-         * Deselect a stack
-         * @param {number} id ID of stack
-         * @returns {void}
-         */
-        deselect(id) {
-            delete this.selectedStacks[id];
-        },
-        /**
-         * Select a stack
-         * @param {number} id ID of stack
-         * @returns {void}
-         */
-        select(id) {
-            this.selectedStacks[id] = true;
-        },
-        /**
-         * Determine if stack is selected
-         * @param {number} id ID of stack
-         * @returns {bool} Is the stack selected?
-         */
-        isSelected(id) {
-            return id in this.selectedStacks;
-        },
-        /**
-         * Disable select mode and reset selection
-         * @returns {void}
-         */
-        cancelSelectMode() {
-            this.selectMode = false;
-            this.selectedStacks = {};
-        },
-        /**
-         * Show dialog to confirm pause
-         * @returns {void}
-         */
-        pauseDialog() {
-            this.$refs.confirmPause.show();
-        },
-        /**
-         * Pause each selected stack
-         * @returns {void}
-         */
-        pauseSelected() {
-            Object.keys(this.selectedStacks)
-                .filter(id => this.$root.stackList[id].active)
-                .forEach(id => this.$root.getSocket().emit("pauseStack", id, () => { }));
-
-            this.cancelSelectMode();
-        },
-        /**
-         * Resume each selected stack
-         * @returns {void}
-         */
-        resumeSelected() {
-            Object.keys(this.selectedStacks)
-                .filter(id => !this.$root.stackList[id].active)
-                .forEach(id => this.$root.getSocket().emit("resumeStack", id, () => { }));
-
-            this.cancelSelectMode();
-        },
     },
 };
 </script>
@@ -618,11 +438,6 @@ export default {
 .header-top {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-}
-
-.header-filter {
-    display: flex;
     align-items: center;
 }
 

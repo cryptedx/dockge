@@ -1,19 +1,16 @@
 import "dotenv/config";
 import { MainRouter } from "./routers/main-router";
 import * as fs from "node:fs";
-import { PackageJson } from "type-fest";
 import { Database } from "./database";
 import packageJSON from "../package.json";
 import { log } from "./log";
 import * as socketIO from "socket.io";
 import express, { Express } from "express";
-import { parse } from "ts-command-line-args";
+import { parseArgs, promisify } from "node:util";
 import https from "https";
 import http from "http";
-import { Router } from "./router";
 import { Socket } from "socket.io";
 import { MainSocketHandler } from "./socket-handlers/main-socket-handler";
-import { SocketHandler } from "./socket-handler";
 import { Settings } from "./settings";
 import checkVersion from "./check-version";
 import dayjs from "dayjs";
@@ -27,21 +24,20 @@ import expressStaticGzip from "express-static-gzip";
 import path from "path";
 import { TerminalSocketHandler } from "./agent-socket-handlers/terminal-socket-handler";
 import { Stack } from "./stack";
-import { Cron } from "croner";
-import gracefulShutdown from "http-graceful-shutdown";
 import User from "./models/user";
-import childProcessAsync from "promisify-child-process";
+import { execFile } from "node:child_process";
 import { AgentManager } from "./agent-manager";
 import { AgentProxySocketHandler } from "./socket-handlers/agent-proxy-socket-handler";
-import { AgentSocketHandler } from "./agent-socket-handler";
 import { AgentSocket } from "../common/agent-socket";
 import { ManageAgentSocketHandler } from "./socket-handlers/manage-agent-socket-handler";
 import { Terminal } from "./terminal";
 
+const execFileAsync = promisify(execFile);
+
 export class DockgeServer {
     app : Express;
     httpServer : http.Server;
-    packageJSON : PackageJson;
+    packageJSON : typeof packageJSON;
     io : socketIO.Server;
     config : Config;
     indexHTML : string = "";
@@ -49,14 +45,14 @@ export class DockgeServer {
     /**
      * List of express routers
      */
-    routerList : Router[] = [
+    routerList : MainRouter[] = [
         new MainRouter(),
     ];
 
     /**
      * List of socket handlers (no agent support)
      */
-    socketHandlerList : SocketHandler[] = [
+    socketHandlerList : Array<{ create(socket : DockgeSocket, server : DockgeServer): void }> = [
         new MainSocketHandler(),
         new ManageAgentSocketHandler(),
     ];
@@ -66,7 +62,7 @@ export class DockgeServer {
     /**
      * List of socket handlers (support agent)
      */
-    agentSocketHandlerList : AgentSocketHandler[] = [
+    agentSocketHandlerList : Array<{ create(socket : DockgeSocket, server : DockgeServer, agentSocket : AgentSocket): void }> = [
         new DockerSocketHandler(),
         new TerminalSocketHandler(),
     ];
@@ -108,41 +104,31 @@ export class DockgeServer {
         }
 
         // Define all possible arguments
-        let args = parse<Arguments>({
-            sslKey: {
-                type: String,
-                optional: true,
+        const { values } = parseArgs({
+            options: {
+                sslKey: { type: "string" },
+                sslCert: { type: "string" },
+                sslKeyPassphrase: { type: "string" },
+                port: { type: "string" },
+                hostname: { type: "string" },
+                dataDir: { type: "string" },
+                stacksDir: { type: "string" },
+                enableConsole: {
+                    type: "boolean",
+                    default: false,
+                },
             },
-            sslCert: {
-                type: String,
-                optional: true,
-            },
-            sslKeyPassphrase: {
-                type: String,
-                optional: true,
-            },
-            port: {
-                type: Number,
-                optional: true,
-            },
-            hostname: {
-                type: String,
-                optional: true,
-            },
-            dataDir: {
-                type: String,
-                optional: true,
-            },
-            stacksDir: {
-                type: String,
-                optional: true,
-            },
-            enableConsole: {
-                type: Boolean,
-                optional: true,
-                defaultValue: false,
-            }
         });
+        const args : Arguments = {
+            sslKey: values.sslKey as string | undefined,
+            sslCert: values.sslCert as string | undefined,
+            sslKeyPassphrase: values.sslKeyPassphrase as string | undefined,
+            port: values.port === undefined ? undefined : Number(values.port),
+            hostname: values.hostname as string | undefined,
+            dataDir: values.dataDir as string | undefined,
+            stacksDir: values.stacksDir as string | undefined,
+            enableConsole: values.enableConsole as boolean | undefined,
+        };
 
         this.config = args as Config;
 
@@ -159,7 +145,7 @@ export class DockgeServer {
 
         log.debug("server", this.config);
 
-        this.packageJSON = packageJSON as PackageJson;
+        this.packageJSON = packageJSON;
 
         try {
             this.indexHTML = fs.readFileSync("./frontend-dist/index.html").toString();
@@ -293,7 +279,7 @@ export class DockgeServer {
             }
 
             // Create agent proxy socket handlers
-            this.agentProxySocketHandler.create2(dockgeSocket, this, agentSocket);
+            this.agentProxySocketHandler.create(dockgeSocket, this, agentSocket);
 
             // ***************************
             // Better do anything after added all socket handlers here
@@ -395,24 +381,43 @@ export class DockgeServer {
                 log.info("server", `Listening on ${this.config.port}`);
             }
 
-            // Run every 10 seconds
-            Cron("*/10 * * * * *", {
-                protect: true,  // Enabled over-run protection.
-            }, () => {
-                //log.debug("server", "Cron job running");
-                this.sendStackList(true);
-            });
+            let sendingStackList = false;
+            setInterval(async () => {
+                if (sendingStackList) {
+                    return;
+                }
+                sendingStackList = true;
+                try {
+                    await this.sendStackList(true);
+                } finally {
+                    sendingStackList = false;
+                }
+            }, 10 * 1000);
 
             checkVersion.startInterval();
         });
 
-        gracefulShutdown(this.httpServer, {
-            signals: "SIGINT SIGTERM",
-            timeout: 30000,                   // timeout: 30 secs
-            development: false,               // not in dev mode
-            forceExit: true,                  // triggers process.exit() at the end of shutdown process
-            onShutdown: this.shutdownFunction,     // shutdown function (async) - e.g. for cleanup DB, ...
-            finally: this.finalFunction,            // finally function (sync) - e.g. for logging
+        const shutdown = async (signal: NodeJS.Signals) => {
+            const forceExit = setTimeout(() => process.exit(1), 30000);
+            try {
+                await new Promise<void>((resolve) => {
+                    this.httpServer.close(() => resolve());
+                });
+                await this.shutdownFunction(signal);
+                this.finalFunction();
+                clearTimeout(forceExit);
+                process.exit(0);
+            } catch (e) {
+                log.error("server", e);
+                process.exit(1);
+            }
+        };
+
+        process.once("SIGINT", () => {
+            void shutdown("SIGINT");
+        });
+        process.once("SIGTERM", () => {
+            void shutdown("SIGTERM");
         });
 
     }
@@ -617,8 +622,9 @@ export class DockgeServer {
     }
 
     async getDockerNetworkList() : Promise<string[]> {
-        let res = await childProcessAsync.spawn("docker", [ "network", "ls", "--format", "{{.Name}}" ], {
+        let res = await execFileAsync("docker", [ "network", "ls", "--format", "{{.Name}}" ], {
             encoding: "utf-8",
+            maxBuffer: 10 * 1024 * 1024,
         });
 
         if (!res.stdout) {
@@ -641,8 +647,9 @@ export class DockgeServer {
         let stats = new Map<string, object>();
 
         try {
-            let res = await childProcessAsync.spawn("docker", [ "stats", "--format", "json", "--no-stream" ], {
+            let res = await execFileAsync("docker", [ "stats", "--format", "json", "--no-stream" ], {
                 encoding: "utf-8",
+                maxBuffer: 10 * 1024 * 1024,
             });
 
             if (!res.stdout) {

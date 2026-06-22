@@ -1,10 +1,9 @@
-import { AgentSocketHandler } from "../agent-socket-handler";
 import { DockgeServer } from "../dockge-server";
 import { callbackError, callbackResult, checkLogin, DockgeSocket, ValidationError } from "../util-server";
 import { Stack } from "../stack";
 import { AgentSocket } from "../../common/agent-socket";
 
-export class DockerSocketHandler extends AgentSocketHandler {
+export class DockerSocketHandler {
     create(socket : DockgeSocket, server : DockgeServer, agentSocket : AgentSocket) {
         // Do not call super.create()
 
@@ -354,4 +353,3 @@ export class DockerSocketHandler extends AgentSocketHandler {
     }
 
 }
-

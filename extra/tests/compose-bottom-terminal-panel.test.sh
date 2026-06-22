@@ -15,6 +15,12 @@ grep -q 'compose-workspace' "$compose_vue" \
 grep -q 'compose-terminal-panel' "$compose_vue" \
     || fail "Combined terminal must render in a dedicated bottom panel"
 
+grep -q 'ref="composeYamlEditor"' "$compose_vue" \
+    || fail "Bottom terminal panel must anchor to the YAML editor area"
+
+grep -q 'this.$refs.composeYamlEditor' "$compose_vue" \
+    || fail "Bottom terminal panel bounds must be measured from the YAML editor area"
+
 grep -q 'combinedTerminalCollapsed' "$compose_vue" \
     || fail "Bottom terminal panel must be collapsible"
 

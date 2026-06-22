@@ -102,7 +102,7 @@
                             </button>
                         </div>
 
-                        <div class="shadow-box mb-3 editor-box compose-yaml-editor" :class="{ 'edit-mode' : isEditMode }">
+                        <div ref="composeYamlEditor" class="shadow-box mb-3 editor-box compose-yaml-editor" :class="{ 'edit-mode' : isEditMode }">
                             <code-mirror
                                 ref="editor"
                                 v-model="stack.composeYAML"
@@ -593,12 +593,13 @@ export default {
 
         updateCombinedTerminalPanelBounds() {
             const workspace = this.$refs.composeWorkspace;
+            const anchor = this.$refs.composeYamlEditor || workspace;
 
-            if (!workspace) {
+            if (!anchor) {
                 return;
             }
 
-            const { left, width } = workspace.getBoundingClientRect();
+            const { left, width } = anchor.getBoundingClientRect();
             const nextStyle = {
                 left: `${Math.max(left, 0)}px`,
                 width: `${Math.max(width, 0)}px`,

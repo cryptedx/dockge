@@ -18,6 +18,18 @@ grep -q 'containerSearchQuery' "$compose_vue" \
 grep -q 'filteredContainerSearchItems' "$compose_vue" \
     || fail "Container search must expose filtered service results"
 
+grep -q 'containerName' "$compose_vue" \
+    || fail "Container search results must expose real Docker container names"
+
+grep -q 'serviceName' "$compose_vue" \
+    || fail "Container search results must keep the compose service name for scrolling"
+
+grep -q 'this.serviceStatusList\[serviceName\]' "$compose_vue" \
+    || fail "Container search must be built from docker compose ps container status entries"
+
+grep -q 'container.name' "$compose_vue" \
+    || fail "Container search must use the real container name from serviceStatusList entries"
+
 grep -q 'handleContainerSearchKeydown' "$compose_vue" \
     || fail "Container search must handle keyboard navigation"
 
@@ -73,9 +85,15 @@ if active_descendant == -1:
     raise SystemExit("FAIL: container search input must expose active descendant")
 if container_refs == -1:
     raise SystemExit("FAIL: container cards must be addressable by dynamic refs")
+if "{{ item.name }}" in source:
+    raise SystemExit("FAIL: search results must not display compose service keys as the primary container name")
+if "{{ item.containerName }}" not in source:
+    raise SystemExit("FAIL: search results must display the real Docker container name")
+if "selectContainerSearchItem(item.serviceName)" not in source:
+    raise SystemExit("FAIL: selecting a container must scroll to the matching compose service card")
 if "this.composeFocusMode = false" not in source:
     raise SystemExit("FAIL: selecting a container must leave focus mode so the details pane is visible")
-if "this.highlightedContainerName = name" not in source:
+if "this.highlightedContainerName = serviceName" not in source:
     raise SystemExit("FAIL: selected container should be highlighted after scrolling")
 PY
 

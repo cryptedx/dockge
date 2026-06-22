@@ -306,19 +306,20 @@
                         <div id="container-search-results" class="container-search-results" role="listbox">
                             <button
                                 v-for="(item, index) in filteredContainerSearchItems"
-                                :id="getContainerSearchItemId(item.name)"
-                                :key="item.name"
+                                :id="getContainerSearchItemId(item.key)"
+                                :key="item.key"
                                 class="container-search-result"
                                 :class="{ 'is-active': index === containerSearchIndex }"
                                 type="button"
                                 role="option"
                                 :aria-selected="index === containerSearchIndex"
                                 @mouseenter="containerSearchIndex = index"
-                                @mousedown.prevent="selectContainerSearchItem(item.name)"
+                                @mousedown.prevent="selectContainerSearchItem(item.serviceName)"
                             >
-                                <span class="container-search-result-name">{{ item.name }}</span>
+                                <span class="container-search-result-name">{{ item.containerName }}</span>
                                 <span class="container-search-result-meta">
                                     <span class="badge" :class="item.badgeClass">{{ item.status }}</span>
+                                    <span class="container-search-service">{{ item.serviceName }}</span>
                                     <span v-if="item.image" class="container-search-image">{{ item.image }}</span>
                                 </span>
                             </button>
@@ -471,18 +472,27 @@ export default {
             const services = this.jsonConfig.services || {};
             const envServices = this.envsubstJSONConfig.services || {};
 
-            return Object.keys(services).map((name) => {
-                const service = envServices[name] || services[name] || {};
-                const status = this.serviceStatusList[name]?.[0]?.status || "N/A";
+            return Object.keys(services).flatMap((serviceName) => {
+                const service = envServices[serviceName] || services[serviceName] || {};
                 const image = service.image || "";
+                const statusEntries = this.serviceStatusList[serviceName] || [];
 
-                return {
-                    name,
-                    image,
-                    status,
-                    badgeClass: this.getContainerStatusBadgeClass(status),
-                    searchText: `${name} ${image} ${status}`.toLowerCase(),
-                };
+                return statusEntries
+                    .filter(container => container?.name)
+                    .map((container, index) => {
+                        const containerName = container.name;
+                        const status = container.status || "N/A";
+
+                        return {
+                            key: `${serviceName}-${containerName}-${index}`,
+                            serviceName,
+                            containerName,
+                            image,
+                            status,
+                            badgeClass: this.getContainerStatusBadgeClass(status),
+                            searchText: `${containerName} ${serviceName} ${image} ${status}`.toLowerCase(),
+                        };
+                    });
             });
         },
 
@@ -498,7 +508,7 @@ export default {
 
         containerSearchActiveItemId() {
             return this.filteredContainerSearchItems[this.containerSearchIndex]
-                ? this.getContainerSearchItemId(this.filteredContainerSearchItems[this.containerSearchIndex].name)
+                ? this.getContainerSearchItemId(this.filteredContainerSearchItems[this.containerSearchIndex].key)
                 : undefined;
         },
 
@@ -918,7 +928,7 @@ export default {
                 const item = this.filteredContainerSearchItems[this.containerSearchIndex];
 
                 if (item) {
-                    this.selectContainerSearchItem(item.name);
+                    this.selectContainerSearchItem(item.serviceName);
                 }
 
                 event.preventDefault();
@@ -939,12 +949,12 @@ export default {
             this.containerSearchIndex = (this.containerSearchIndex + delta + itemCount) % itemCount;
         },
 
-        selectContainerSearchItem(name) {
+        selectContainerSearchItem(serviceName) {
             this.closeContainerSearch();
-            this.scrollToContainer(name);
+            this.scrollToContainer(serviceName);
         },
 
-        scrollToContainer(name) {
+        scrollToContainer(serviceName) {
             const wasFocusMode = this.composeFocusMode;
             this.composeFocusMode = false;
 
@@ -953,7 +963,7 @@ export default {
             }
 
             this.$nextTick(() => {
-                const element = this.containerCardRefs[name];
+                const element = this.containerCardRefs[serviceName];
 
                 if (!element) {
                     return;
@@ -964,10 +974,10 @@ export default {
                     behavior: "smooth"
                 });
 
-                this.highlightedContainerName = name;
+                this.highlightedContainerName = serviceName;
                 clearTimeout(this.highlightedContainerTimeout);
                 this.highlightedContainerTimeout = setTimeout(() => {
-                    if (this.highlightedContainerName === name) {
+                    if (this.highlightedContainerName === serviceName) {
                         this.highlightedContainerName = "";
                     }
                 }, 1800);
@@ -1455,6 +1465,16 @@ export default {
     gap: 8px;
     justify-content: flex-end;
     min-width: 0;
+}
+
+.container-search-service {
+    color: $dark-font-color3;
+    font-size: 0.78rem;
+    font-weight: 700;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .container-search-image {

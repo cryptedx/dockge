@@ -11,6 +11,7 @@ WORKDIR /app
 COPY --chown=node:node  ./package.json ./package.json
 COPY --chown=node:node  ./pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --chown=node:node  ./pnpm-workspace.yaml ./pnpm-workspace.yaml
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 RUN pnpm install --frozen-lockfile
 COPY --chown=node:node  . .
 RUN pnpm run build:frontend
@@ -44,4 +45,4 @@ CMD ["node", "--import", "tsx", "./backend/index.ts"]
 # Mark as Nightly
 ############################################
 FROM release AS nightly
-RUN pnpm run mark-as-nightly
+RUN node --import tsx ./extra/mark-as-nightly.ts

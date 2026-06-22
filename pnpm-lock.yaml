@@ -97,6 +97,9 @@ importers:
       '@codemirror/lang-yaml':
         specifier: ^6.1.2
         version: 6.1.2
+      '@codemirror/view':
+        specifier: ^6.39.6
+        version: 6.39.6
       '@fontsource/jetbrains-mono':
         specifier: ^5.2.5
         version: 5.2.5

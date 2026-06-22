@@ -93,7 +93,7 @@
                 }"
             >
                 <div class="compose-workbench">
-                    <section class="compose-editor-pane">
+                    <section ref="composeEditorPane" class="compose-editor-pane">
                         <div class="compose-editor-header">
                             <h4 class="mb-0">{{ stack.composeFileName }}</h4>
                             <button class="btn btn-normal btn-sm" type="button" @click="toggleComposeFocusMode">
@@ -102,7 +102,7 @@
                             </button>
                         </div>
 
-                        <div ref="composeYamlEditor" class="shadow-box mb-3 editor-box compose-yaml-editor" :class="{ 'edit-mode' : isEditMode }">
+                        <div class="shadow-box mb-3 editor-box compose-yaml-editor" :class="{ 'edit-mode' : isEditMode }">
                             <code-mirror
                                 ref="editor"
                                 v-model="stack.composeYAML"
@@ -593,7 +593,7 @@ export default {
 
         updateCombinedTerminalPanelBounds() {
             const workspace = this.$refs.composeWorkspace;
-            const anchor = this.$refs.composeYamlEditor || workspace;
+            const anchor = this.$refs.composeEditorPane || workspace;
 
             if (!anchor) {
                 return;
@@ -607,6 +607,9 @@ export default {
 
             if (this.combinedTerminalPanelStyle.left !== nextStyle.left || this.combinedTerminalPanelStyle.width !== nextStyle.width) {
                 this.combinedTerminalPanelStyle = nextStyle;
+                this.$nextTick(() => {
+                    this.$refs.combinedTerminal?.updateTerminalSize?.();
+                });
             }
         },
 

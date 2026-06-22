@@ -15,11 +15,11 @@ grep -q 'compose-workspace' "$compose_vue" \
 grep -q 'compose-terminal-panel' "$compose_vue" \
     || fail "Combined terminal must render in a dedicated bottom panel"
 
-grep -q 'ref="composeYamlEditor"' "$compose_vue" \
-    || fail "Bottom terminal panel must anchor to the YAML editor area"
+grep -q 'ref="composeEditorPane"' "$compose_vue" \
+    || fail "Bottom terminal panel must anchor to the YAML editor pane"
 
-grep -q 'this.$refs.composeYamlEditor' "$compose_vue" \
-    || fail "Bottom terminal panel bounds must be measured from the YAML editor area"
+grep -q 'this.$refs.composeEditorPane' "$compose_vue" \
+    || fail "Bottom terminal panel bounds must be measured from the YAML editor pane"
 
 grep -q 'combinedTerminalCollapsed' "$compose_vue" \
     || fail "Bottom terminal panel must be collapsible"
@@ -95,6 +95,20 @@ if terminal_ref < details_pane_close:
     raise SystemExit("FAIL: combined terminal must not stay inside compose-details-pane")
 if "!this.isEditMode && !this.composeFocusMode" not in source:
     raise SystemExit("FAIL: bottom terminal panel must hide in edit mode and focus mode")
+
+update_method = source.find("updateCombinedTerminalPanelBounds()")
+if update_method == -1:
+    raise SystemExit("FAIL: bottom terminal bounds updater not found")
+toggle_method = source.find("toggleComposeFocusMode()", update_method)
+if toggle_method == -1:
+    raise SystemExit("FAIL: bottom terminal bounds updater end not found")
+update_source = source[update_method:toggle_method]
+style_assignment = update_source.find("this.combinedTerminalPanelStyle = nextStyle")
+terminal_refit = update_source.find("this.$refs.combinedTerminal?.updateTerminalSize?.()")
+if style_assignment == -1:
+    raise SystemExit("FAIL: bottom terminal bounds updater must assign panel style")
+if terminal_refit == -1 or terminal_refit < style_assignment:
+    raise SystemExit("FAIL: bottom terminal panel must refit xterm after its bounds change")
 PY
 
 echo "PASS compose-bottom-terminal-panel"

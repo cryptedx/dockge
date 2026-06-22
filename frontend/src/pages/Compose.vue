@@ -83,10 +83,13 @@
 
             <div
                 v-if="stack.isManagedByDockge"
+                ref="composeWorkspace"
                 class="compose-workspace"
                 :class="{
                     'compose-focus-mode': composeFocusMode,
                     'compose-details-stacked': shouldStackDetailsPane,
+                    'compose-terminal-expanded': showCombinedTerminalPanel && !combinedTerminalCollapsed,
+                    'compose-terminal-collapsed': showCombinedTerminalPanel && combinedTerminalCollapsed,
                 }"
             >
                 <div class="compose-workbench">
@@ -231,7 +234,12 @@
                     </aside>
                 </div>
 
-                <section v-show="!isEditMode" class="compose-terminal-panel" :class="{ 'is-collapsed': combinedTerminalCollapsed }">
+                <section
+                    v-show="showCombinedTerminalPanel"
+                    class="compose-terminal-panel"
+                    :class="{ 'is-collapsed': combinedTerminalCollapsed }"
+                    :style="combinedTerminalPanelStyle"
+                >
                     <div class="compose-terminal-header">
                         <h4 class="mb-0">{{ $t("terminal") }}</h4>
                         <button
@@ -368,6 +376,7 @@ export default {
             combinedTerminalRows: COMBINED_TERMINAL_ROWS,
             combinedTerminalCols: COMBINED_TERMINAL_COLS,
             combinedTerminalCollapsed: false,
+            combinedTerminalPanelStyle: {},
             stack: {
 
             },
@@ -389,6 +398,10 @@ export default {
     computed: {
         shouldStackDetailsPane() {
             return !this.composeFocusMode && shouldCollapseSecondaryPanes(this.windowWidth, 0, this.detailsPaneWidth);
+        },
+
+        showCombinedTerminalPanel() {
+            return !this.isEditMode && !this.composeFocusMode;
         },
 
         endpointDisplay() {
@@ -558,21 +571,49 @@ export default {
 
         this.requestServiceStatus();
         this.requestDockerStats();
+        this.$nextTick(this.updateCombinedTerminalPanelBounds);
         window.addEventListener("resize", this.updateWindowWidth);
+        window.addEventListener("keydown", this.handleGlobalTerminalShortcut);
+        window.addEventListener("scroll", this.updateCombinedTerminalPanelBounds, true);
+    },
+    updated() {
+        this.updateCombinedTerminalPanelBounds();
     },
     unmounted() {
         this.stopDetailsResize();
         this.$emit("compose-focus-change", false);
         window.removeEventListener("resize", this.updateWindowWidth);
+        window.removeEventListener("keydown", this.handleGlobalTerminalShortcut);
+        window.removeEventListener("scroll", this.updateCombinedTerminalPanelBounds, true);
     },
     methods: {
         updateWindowWidth() {
             this.windowWidth = window.innerWidth;
+            this.updateCombinedTerminalPanelBounds();
+        },
+
+        updateCombinedTerminalPanelBounds() {
+            const workspace = this.$refs.composeWorkspace;
+
+            if (!workspace) {
+                return;
+            }
+
+            const { left, width } = workspace.getBoundingClientRect();
+            const nextStyle = {
+                left: `${Math.max(left, 0)}px`,
+                width: `${Math.max(width, 0)}px`,
+            };
+
+            if (this.combinedTerminalPanelStyle.left !== nextStyle.left || this.combinedTerminalPanelStyle.width !== nextStyle.width) {
+                this.combinedTerminalPanelStyle = nextStyle;
+            }
         },
 
         toggleComposeFocusMode() {
             this.composeFocusMode = !this.composeFocusMode;
             this.$emit("compose-focus-change", this.composeFocusMode);
+            this.$nextTick(this.updateCombinedTerminalPanelBounds);
         },
 
         startDetailsResize(event) {
@@ -703,6 +744,21 @@ export default {
                     this.$refs.combinedTerminal?.updateTerminalSize?.();
                 });
             }
+        },
+
+        handleGlobalTerminalShortcut(event) {
+            const isTerminalShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "j";
+
+            if (!isTerminalShortcut) {
+                return;
+            }
+
+            if (!this.showCombinedTerminalPanel) {
+                return;
+            }
+
+            event.preventDefault();
+            this.toggleCombinedTerminalPanel();
         },
 
         loadStack() {
@@ -980,6 +1036,14 @@ export default {
     min-width: 0;
 }
 
+.compose-workspace.compose-terminal-expanded {
+    padding-bottom: calc(clamp(320px, 34vh, 460px) + 74px);
+}
+
+.compose-workspace.compose-terminal-collapsed {
+    padding-bottom: 74px;
+}
+
 .compose-workbench {
     align-items: stretch;
     display: flex;
@@ -1012,8 +1076,19 @@ export default {
 }
 
 .compose-terminal-panel {
+    background: $dark-bg;
+    border-radius: 18px 18px 0 0;
+    bottom: 0;
+    box-shadow: 0 -16px 32px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06);
     margin-top: 8px;
     min-width: 0;
+    padding: 12px 12px 0;
+    position: fixed;
+    z-index: 20;
+}
+
+.compose-terminal-panel.is-collapsed {
+    padding-bottom: 12px;
 }
 
 .compose-terminal-header {
@@ -1040,7 +1115,7 @@ export default {
 
 .compose-bottom-terminal {
     height: clamp(320px, 34vh, 460px);
-    margin-bottom: 1rem;
+    margin-bottom: 0;
 }
 
 .compose-yaml-editor,

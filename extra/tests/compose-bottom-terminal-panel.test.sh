@@ -18,6 +18,15 @@ grep -q 'compose-terminal-panel' "$compose_vue" \
 grep -q 'combinedTerminalCollapsed' "$compose_vue" \
     || fail "Bottom terminal panel must be collapsible"
 
+grep -q 'COMBINED_TERMINAL_COLLAPSED_STORAGE_KEY' "$compose_vue" \
+    || fail "Bottom terminal panel collapsed state must use a named storage key"
+
+grep -q 'window.localStorage.getItem(COMBINED_TERMINAL_COLLAPSED_STORAGE_KEY)' "$compose_vue" \
+    || fail "Bottom terminal panel must restore collapsed state from localStorage"
+
+grep -q 'window.localStorage.setItem(COMBINED_TERMINAL_COLLAPSED_STORAGE_KEY' "$compose_vue" \
+    || fail "Bottom terminal panel must persist collapsed state to localStorage"
+
 grep -q 'toggleCombinedTerminalPanel' "$compose_vue" \
     || fail "Bottom terminal panel must refit the xterm instance after expanding"
 
@@ -32,6 +41,14 @@ grep -q 'window.addEventListener("keydown", this.handleGlobalTerminalShortcut)' 
 
 grep -q 'window.removeEventListener("keydown", this.handleGlobalTerminalShortcut)' "$compose_vue" \
     || fail "Bottom terminal panel shortcut must be removed on unmount"
+
+if grep -q 'window.addEventListener("scroll", this.updateCombinedTerminalPanelBounds' "$compose_vue"; then
+    fail "Bottom terminal panel must not recalculate its fixed width on scroll"
+fi
+
+if grep -q 'window.removeEventListener("scroll", this.updateCombinedTerminalPanelBounds' "$compose_vue"; then
+    fail "Bottom terminal panel must not register scroll-bound width cleanup"
+fi
 
 grep -Eq 'event\.(ctrlKey|metaKey).+event\.(metaKey|ctrlKey)|event\.(metaKey|ctrlKey).+event\.(ctrlKey|metaKey)' "$compose_vue" \
     || fail "Bottom terminal panel shortcut must accept both Ctrl+J and Cmd+J"

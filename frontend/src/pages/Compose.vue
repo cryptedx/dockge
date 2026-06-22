@@ -320,6 +320,7 @@ let yamlErrorTimeout = null;
 
 let serviceStatusTimeout = null;
 let dockerStatsTimeout = null;
+const COMBINED_TERMINAL_COLLAPSED_STORAGE_KEY = "dockgeCombinedTerminalCollapsed";
 
 export default {
     components: {
@@ -375,7 +376,7 @@ export default {
             progressTerminalRows: PROGRESS_TERMINAL_ROWS,
             combinedTerminalRows: COMBINED_TERMINAL_ROWS,
             combinedTerminalCols: COMBINED_TERMINAL_COLS,
-            combinedTerminalCollapsed: false,
+            combinedTerminalCollapsed: window.localStorage.getItem(COMBINED_TERMINAL_COLLAPSED_STORAGE_KEY) === "true",
             combinedTerminalPanelStyle: {},
             stack: {
 
@@ -574,7 +575,6 @@ export default {
         this.$nextTick(this.updateCombinedTerminalPanelBounds);
         window.addEventListener("resize", this.updateWindowWidth);
         window.addEventListener("keydown", this.handleGlobalTerminalShortcut);
-        window.addEventListener("scroll", this.updateCombinedTerminalPanelBounds, true);
     },
     updated() {
         this.updateCombinedTerminalPanelBounds();
@@ -584,7 +584,6 @@ export default {
         this.$emit("compose-focus-change", false);
         window.removeEventListener("resize", this.updateWindowWidth);
         window.removeEventListener("keydown", this.handleGlobalTerminalShortcut);
-        window.removeEventListener("scroll", this.updateCombinedTerminalPanelBounds, true);
     },
     methods: {
         updateWindowWidth() {
@@ -738,6 +737,7 @@ export default {
 
         toggleCombinedTerminalPanel() {
             this.combinedTerminalCollapsed = !this.combinedTerminalCollapsed;
+            window.localStorage.setItem(COMBINED_TERMINAL_COLLAPSED_STORAGE_KEY, String(this.combinedTerminalCollapsed));
 
             if (!this.combinedTerminalCollapsed) {
                 this.$nextTick(() => {

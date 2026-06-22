@@ -9,11 +9,12 @@ FROM louislam/dockge:build-healthcheck AS build_healthcheck
 FROM louislam/dockge:base AS build
 WORKDIR /app
 COPY --chown=node:node  ./package.json ./package.json
-COPY --chown=node:node  ./package-lock.json ./package-lock.json
-RUN npm ci
+COPY --chown=node:node  ./pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --chown=node:node  ./pnpm-workspace.yaml ./pnpm-workspace.yaml
+RUN pnpm install --frozen-lockfile
 COPY --chown=node:node  . .
-RUN npm run build:frontend
-RUN npm prune --omit=dev
+RUN pnpm run build:frontend
+RUN pnpm prune --prod
 
 ############################################
 # ⭐ Main Image
@@ -37,10 +38,10 @@ VOLUME /app/data
 EXPOSE 5001
 HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=5 CMD extra/healthcheck
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["tsx", "./backend/index.ts"]
+CMD ["node", "--import", "tsx", "./backend/index.ts"]
 
 ############################################
 # Mark as Nightly
 ############################################
 FROM release AS nightly
-RUN npm run mark-as-nightly
+RUN pnpm run mark-as-nightly

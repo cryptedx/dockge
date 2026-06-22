@@ -13,7 +13,7 @@ if grep -Eq '^frontend/?$' .dockerignore; then
     fail ".dockerignore must not exclude frontend; docker/Dockerfile builds frontend-dist from source"
 fi
 
-grep -q "npm run build:frontend" docker/Dockerfile \
+grep -q "pnpm run build:frontend" docker/Dockerfile \
     || fail "docker/Dockerfile must build frontend-dist during the image build"
 
 grep -q "COPY --chown=node:node --from=build /app/frontend-dist /app/frontend-dist" docker/Dockerfile \

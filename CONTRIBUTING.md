@@ -66,14 +66,15 @@ I personally do not like something that requires so many configurations before y
 ## Install Dependencies for Development
 
 ```bash
-npm install
+corepack enable
+pnpm install
 ```
 
 ## Dev Server
 
 ```
-npm run dev:frontend
-npm run dev:backend
+pnpm run dev:frontend
+pnpm run dev:backend
 ```
 
 ## Backend Dev Server
@@ -93,7 +94,7 @@ You can use Vue.js devtools Chrome extension for debugging.
 ### Build the frontend
 
 ```bash
-npm run build
+pnpm run build:frontend
 ```
 
 ## Database Migration
@@ -116,10 +117,11 @@ Both frontend and backend share the same package.json. However, the frontend dep
 Should only be done by the maintainer.
 
 ```bash
-npm update
+pnpm update
 ````
 
 It should update the patch release version only.
+pnpm also rejects package versions published less than 7 days ago.
 
 Patch release = the third digit ([Semantic Versioning](https://semver.org/))
 

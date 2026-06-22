@@ -1,54 +1,52 @@
 <template>
-    <div class="shadow-box big-padding mb-3 container">
-        <div class="row">
-            <div class="col-5">
-                <h4>{{ name }}</h4>
+    <div class="shadow-box big-padding mb-3 container container-card">
+        <div class="container-card-main">
+            <div class="container-summary">
+                <h4 class="container-name">{{ name }}</h4>
                 <div class="image mb-2">
                     <span class="me-1">{{ imageName }}:</span><span class="tag">{{ imageTag }}</span>
                 </div>
-                <div v-if="!isEditMode">
-                    <span class="badge me-1" :class="bgStyle">{{ status }}</span>
+                <div v-if="!isEditMode" class="container-badges">
+                    <span class="badge" :class="bgStyle">{{ status }}</span>
 
                     <a v-for="port in (ports ?? envsubstService.ports)" :key="port" :href="parsePort(port).url" target="_blank">
-                        <span class="badge me-1 bg-secondary">{{ parsePort(port).display }}</span>
+                        <span class="badge bg-secondary">{{ parsePort(port).display }}</span>
                     </a>
                 </div>
             </div>
-            <div class="col-7">
-                <div class="function">
-                    <div class="btn-group me-2" role="group">
-                        <router-link v-if="!isEditMode && (status === 'running' || status === 'healthy')" class="btn btn-normal" :to="terminalRouteLink" disabled="">
-                            <font-awesome-icon icon="terminal" />
-                            Bash
-                        </router-link>
-                        <button
-                            v-if="serviceCount > 1 && !isEditMode && status !== 'running' && status !== 'healthy'"
-                            class="btn btn-primary"
-                            :disabled="processing"
-                            @click="startService"
-                        >
-                            <font-awesome-icon icon="play" class="me-1" />
-                            {{ $t("startStack") }}
-                        </button>
-                        <button
-                            v-if="serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy')"
-                            class="btn btn-normal"
-                            :disabled="processing"
-                            @click="restartService"
-                        >
-                            <font-awesome-icon icon="rotate" class="me-1" />
-                            {{ $t("restartStack") }}
-                        </button>
-                        <button
-                            v-if="serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy')"
-                            class="btn btn-normal"
-                            :disabled="processing"
-                            @click="stopService"
-                        >
-                            <font-awesome-icon icon="stop" class="me-1" />
-                            {{ $t("stopStack") }}
-                        </button>
-                    </div>
+            <div class="container-actions">
+                <div class="container-action-grid" role="group">
+                    <router-link v-if="!isEditMode && (status === 'running' || status === 'healthy')" class="btn btn-normal" :to="terminalRouteLink" disabled="">
+                        <font-awesome-icon icon="terminal" />
+                        <span>Bash</span>
+                    </router-link>
+                    <button
+                        v-if="serviceCount > 1 && !isEditMode && status !== 'running' && status !== 'healthy'"
+                        class="btn btn-primary"
+                        :disabled="processing"
+                        @click="startService"
+                    >
+                        <font-awesome-icon icon="play" />
+                        <span>{{ $t("startStack") }}</span>
+                    </button>
+                    <button
+                        v-if="serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy')"
+                        class="btn btn-normal"
+                        :disabled="processing"
+                        @click="restartService"
+                    >
+                        <font-awesome-icon icon="rotate" />
+                        <span>{{ $t("restartStack") }}</span>
+                    </button>
+                    <button
+                        v-if="serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy')"
+                        class="btn btn-normal"
+                        :disabled="processing"
+                        @click="stopService"
+                    >
+                        <font-awesome-icon icon="stop" />
+                        <span>{{ $t("stopStack") }}</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -386,27 +384,81 @@ export default defineComponent({
 <style scoped lang="scss">
 @import "../styles/vars";
 
-.container {
+.container-card {
+    container-type: inline-size;
+    overflow: hidden;
+
     .image {
         font-size: 0.8rem;
         color: #6c757d;
+        overflow-wrap: anywhere;
+
         .tag {
-            color: #33383b;
+            color: $dark-font-color;
         }
     }
 
-    .function {
-        align-content: center;
+    .container-card-main {
         display: flex;
-        height: 100%;
-        width: 100%;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+    }
+
+    .container-summary {
+        min-width: 0;
+    }
+
+    .container-name {
+        line-height: 1.15;
+        margin-bottom: 0.6rem;
+        overflow-wrap: anywhere;
+        text-wrap: balance;
+    }
+
+    .container-badges {
         align-items: center;
-        justify-content: end;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+
+        a {
+            line-height: 1;
+        }
+    }
+
+    .container-actions {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .container-action-grid {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+        width: 100%;
+
+        .btn {
+            align-items: center;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            justify-content: center;
+            line-height: 1.15;
+            min-height: 48px;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            padding: 0.55rem 0.45rem;
+            text-align: center;
+            white-space: normal;
+        }
     }
 
     .stats {
         font-size: 0.8rem;
         color: #6c757d;
+        font-variant-numeric: tabular-nums;
     }
 }
 </style>

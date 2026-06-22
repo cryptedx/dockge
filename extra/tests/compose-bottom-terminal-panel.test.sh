@@ -21,6 +21,15 @@ grep -q 'ref="composeEditorPane"' "$compose_vue" \
 grep -q 'this.$refs.composeEditorPane' "$compose_vue" \
     || fail "Bottom terminal panel bounds must be measured from the YAML editor pane"
 
+grep -q 'new ResizeObserver' "$compose_vue" \
+    || fail "Bottom terminal panel must observe editor pane width changes"
+
+grep -q 'combinedTerminalPanelResizeObserver.observe(anchor)' "$compose_vue" \
+    || fail "Bottom terminal panel resize observer must watch the measured anchor"
+
+grep -q 'combinedTerminalPanelResizeObserver?.disconnect()' "$compose_vue" \
+    || fail "Bottom terminal panel resize observer must be disconnected on unmount"
+
 grep -q 'combinedTerminalCollapsed' "$compose_vue" \
     || fail "Bottom terminal panel must be collapsible"
 

@@ -366,6 +366,8 @@ export default {
             editorFocus };
     },
     yamlDoc: null,  // For keeping the yaml comments
+    combinedTerminalPanelResizeObserver: null,
+    combinedTerminalPanelResizeAnchor: null,
     data() {
         return {
             jsonConfig: {},
@@ -572,16 +574,23 @@ export default {
 
         this.requestServiceStatus();
         this.requestDockerStats();
-        this.$nextTick(this.updateCombinedTerminalPanelBounds);
+        this.$nextTick(() => {
+            this.observeCombinedTerminalPanelAnchor();
+            this.updateCombinedTerminalPanelBounds();
+        });
         window.addEventListener("resize", this.updateWindowWidth);
         window.addEventListener("keydown", this.handleGlobalTerminalShortcut);
     },
     updated() {
+        this.observeCombinedTerminalPanelAnchor();
         this.updateCombinedTerminalPanelBounds();
     },
     unmounted() {
         this.stopDetailsResize();
         this.$emit("compose-focus-change", false);
+        this.combinedTerminalPanelResizeObserver?.disconnect();
+        this.combinedTerminalPanelResizeObserver = null;
+        this.combinedTerminalPanelResizeAnchor = null;
         window.removeEventListener("resize", this.updateWindowWidth);
         window.removeEventListener("keydown", this.handleGlobalTerminalShortcut);
     },
@@ -589,6 +598,28 @@ export default {
         updateWindowWidth() {
             this.windowWidth = window.innerWidth;
             this.updateCombinedTerminalPanelBounds();
+        },
+
+        observeCombinedTerminalPanelAnchor() {
+            const anchor = this.$refs.composeEditorPane || this.$refs.composeWorkspace;
+
+            if (!anchor || typeof ResizeObserver === "undefined") {
+                return;
+            }
+
+            if (!this.combinedTerminalPanelResizeObserver) {
+                this.combinedTerminalPanelResizeObserver = new ResizeObserver(() => {
+                    this.updateCombinedTerminalPanelBounds();
+                });
+            }
+
+            if (this.combinedTerminalPanelResizeAnchor === anchor) {
+                return;
+            }
+
+            this.combinedTerminalPanelResizeObserver.disconnect();
+            this.combinedTerminalPanelResizeAnchor = anchor;
+            this.combinedTerminalPanelResizeObserver.observe(anchor);
         },
 
         updateCombinedTerminalPanelBounds() {

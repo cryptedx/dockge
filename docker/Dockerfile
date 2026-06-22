@@ -10,7 +10,10 @@ FROM louislam/dockge:base AS build
 WORKDIR /app
 COPY --chown=node:node  ./package.json ./package.json
 COPY --chown=node:node  ./package-lock.json ./package-lock.json
-RUN npm ci --omit=dev
+RUN npm ci
+COPY --chown=node:node  . .
+RUN npm run build:frontend
+RUN npm prune --omit=dev
 
 ############################################
 # ⭐ Main Image
@@ -20,6 +23,7 @@ WORKDIR /app
 COPY --chown=node:node --from=build_healthcheck /app/extra/healthcheck /app/extra/healthcheck
 COPY --from=build /app/node_modules /app/node_modules
 COPY --chown=node:node  . .
+COPY --chown=node:node --from=build /app/frontend-dist /app/frontend-dist
 RUN mkdir ./data
 
 

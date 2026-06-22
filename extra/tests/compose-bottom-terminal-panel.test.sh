@@ -30,6 +30,12 @@ grep -q 'combinedTerminalPanelResizeObserver.observe(anchor)' "$compose_vue" \
 grep -q 'combinedTerminalPanelResizeObserver?.disconnect()' "$compose_vue" \
     || fail "Bottom terminal panel resize observer must be disconnected on unmount"
 
+grep -q 'requestAnimationFrame' "$compose_vue" \
+    || fail "Bottom terminal panel bounds must be measured after browser layout"
+
+grep -q 'cancelAnimationFrame' "$compose_vue" \
+    || fail "Bottom terminal panel scheduled bounds updates must be cancellable"
+
 grep -q 'combinedTerminalCollapsed' "$compose_vue" \
     || fail "Bottom terminal panel must be collapsible"
 
@@ -77,6 +83,9 @@ grep -Eq 'position:[[:space:]]*(sticky|fixed)' "$compose_vue" \
 grep -q 'bottom: 0' "$compose_vue" \
     || fail "Bottom terminal panel must be anchored to the bottom edge"
 
+grep -q 'width: 100%' "$compose_vue" \
+    || fail "Bottom terminal content must fill the available panel width"
+
 python3 - "$compose_vue" <<'PY'
 from pathlib import Path
 import sys
@@ -118,6 +127,28 @@ if style_assignment == -1:
     raise SystemExit("FAIL: bottom terminal bounds updater must assign panel style")
 if terminal_refit == -1 or terminal_refit < style_assignment:
     raise SystemExit("FAIL: bottom terminal panel must refit xterm after its bounds change")
+
+load_stack = source.find("loadStack()")
+if load_stack == -1:
+    raise SystemExit("FAIL: loadStack method not found")
+deploy_stack = source.find("deployStack()", load_stack)
+if deploy_stack == -1:
+    raise SystemExit("FAIL: loadStack method end not found")
+load_stack_source = source[load_stack:deploy_stack]
+if "this.scheduleCombinedTerminalPanelBoundsUpdate()" not in load_stack_source:
+    raise SystemExit("FAIL: bottom terminal panel must be remeasured after loading a stack")
+
+terminal_css = source.find(".compose-bottom-terminal")
+if terminal_css == -1:
+    raise SystemExit("FAIL: bottom terminal CSS not found")
+terminal_css_end = source.find("}", terminal_css)
+if terminal_css_end == -1:
+    raise SystemExit("FAIL: bottom terminal CSS block not closed")
+terminal_css_block = source[terminal_css:terminal_css_end]
+if "display: block" not in terminal_css_block:
+    raise SystemExit("FAIL: bottom terminal must render as a block")
+if "width: 100%" not in terminal_css_block:
+    raise SystemExit("FAIL: bottom terminal must fill the panel width")
 PY
 
 echo "PASS compose-bottom-terminal-panel"

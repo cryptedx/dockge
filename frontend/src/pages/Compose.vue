@@ -366,6 +366,7 @@ export default {
             editorFocus };
     },
     yamlDoc: null,  // For keeping the yaml comments
+    combinedTerminalPanelBoundsFrame: null,
     combinedTerminalPanelResizeObserver: null,
     combinedTerminalPanelResizeAnchor: null,
     data() {
@@ -574,20 +575,20 @@ export default {
 
         this.requestServiceStatus();
         this.requestDockerStats();
-        this.$nextTick(() => {
-            this.observeCombinedTerminalPanelAnchor();
-            this.updateCombinedTerminalPanelBounds();
-        });
+        this.scheduleCombinedTerminalPanelBoundsUpdate();
         window.addEventListener("resize", this.updateWindowWidth);
         window.addEventListener("keydown", this.handleGlobalTerminalShortcut);
     },
     updated() {
-        this.observeCombinedTerminalPanelAnchor();
-        this.updateCombinedTerminalPanelBounds();
+        this.scheduleCombinedTerminalPanelBoundsUpdate();
     },
     unmounted() {
         this.stopDetailsResize();
         this.$emit("compose-focus-change", false);
+        if (this.combinedTerminalPanelBoundsFrame !== null) {
+            cancelAnimationFrame(this.combinedTerminalPanelBoundsFrame);
+            this.combinedTerminalPanelBoundsFrame = null;
+        }
         this.combinedTerminalPanelResizeObserver?.disconnect();
         this.combinedTerminalPanelResizeObserver = null;
         this.combinedTerminalPanelResizeAnchor = null;
@@ -597,7 +598,21 @@ export default {
     methods: {
         updateWindowWidth() {
             this.windowWidth = window.innerWidth;
-            this.updateCombinedTerminalPanelBounds();
+            this.scheduleCombinedTerminalPanelBoundsUpdate();
+        },
+
+        scheduleCombinedTerminalPanelBoundsUpdate() {
+            this.$nextTick(() => {
+                if (this.combinedTerminalPanelBoundsFrame !== null) {
+                    cancelAnimationFrame(this.combinedTerminalPanelBoundsFrame);
+                }
+
+                this.combinedTerminalPanelBoundsFrame = requestAnimationFrame(() => {
+                    this.combinedTerminalPanelBoundsFrame = null;
+                    this.observeCombinedTerminalPanelAnchor();
+                    this.updateCombinedTerminalPanelBounds();
+                });
+            });
         },
 
         observeCombinedTerminalPanelAnchor() {
@@ -609,7 +624,7 @@ export default {
 
             if (!this.combinedTerminalPanelResizeObserver) {
                 this.combinedTerminalPanelResizeObserver = new ResizeObserver(() => {
-                    this.updateCombinedTerminalPanelBounds();
+                    this.scheduleCombinedTerminalPanelBoundsUpdate();
                 });
             }
 
@@ -647,7 +662,7 @@ export default {
         toggleComposeFocusMode() {
             this.composeFocusMode = !this.composeFocusMode;
             this.$emit("compose-focus-change", this.composeFocusMode);
-            this.$nextTick(this.updateCombinedTerminalPanelBounds);
+            this.scheduleCombinedTerminalPanelBoundsUpdate();
         },
 
         startDetailsResize(event) {
@@ -804,6 +819,7 @@ export default {
                     this.yamlCodeChange();
                     this.processing = false;
                     this.bindTerminal();
+                    this.scheduleCombinedTerminalPanelBoundsUpdate();
                 } else {
                     this.$root.toastRes(res);
                 }
@@ -1146,11 +1162,20 @@ export default {
 
 .compose-terminal-body {
     min-width: 0;
+    width: 100%;
 }
 
 .compose-bottom-terminal {
+    box-sizing: border-box;
+    display: block;
     height: clamp(320px, 34vh, 460px);
     margin-bottom: 0;
+    width: 100%;
+}
+
+.compose-bottom-terminal :deep(.main-terminal),
+.compose-bottom-terminal :deep(.xterm) {
+    width: 100%;
 }
 
 .compose-yaml-editor,

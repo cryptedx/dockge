@@ -83,133 +83,27 @@
 
             <div
                 v-if="stack.isManagedByDockge"
-                class="compose-workbench"
+                class="compose-workspace"
                 :class="{
                     'compose-focus-mode': composeFocusMode,
                     'compose-details-stacked': shouldStackDetailsPane,
                 }"
             >
-                <section class="compose-editor-pane">
-                    <div class="compose-editor-header">
-                        <h4 class="mb-0">{{ stack.composeFileName }}</h4>
-                        <button class="btn btn-normal btn-sm" type="button" @click="toggleComposeFocusMode">
-                            <font-awesome-icon :icon="composeFocusMode ? 'compress' : 'expand'" class="me-1" />
-                            {{ composeFocusMode ? $t("exitFocusMode") : $t("focusEditor") }}
-                        </button>
-                    </div>
-
-                    <div class="shadow-box mb-3 editor-box compose-yaml-editor" :class="{ 'edit-mode' : isEditMode }">
-                        <code-mirror
-                            ref="editor"
-                            v-model="stack.composeYAML"
-                            :extensions="extensions"
-                            minimal
-                            wrap="true"
-                            dark="true"
-                            tab="true"
-                            :disabled="!isEditMode"
-                            :hasFocus="editorFocus"
-                            @change="yamlCodeChange"
-                        />
-                    </div>
-
-                    <div v-if="isEditMode && yamlError" class="alert alert-danger py-2 mb-3" role="alert">
-                        {{ yamlError }}
-                    </div>
-                </section>
-
-                <button
-                    v-if="!composeFocusMode && !shouldStackDetailsPane"
-                    class="pane-resizer details-resizer"
-                    type="button"
-                    tabindex="0"
-                    role="separator"
-                    aria-orientation="vertical"
-                    :aria-label="$t('resizeDetailsPane')"
-                    aria-controls="compose-details-pane"
-                    :aria-valuemin="detailsPaneConfig.minWidth"
-                    :aria-valuemax="detailsPaneConfig.maxWidth"
-                    :aria-valuenow="detailsPaneWidth"
-                    @pointerdown="startDetailsResize"
-                    @keydown="handleDetailsResizeKeydown"
-                ></button>
-
-                <aside
-                    v-show="!composeFocusMode"
-                    id="compose-details-pane"
-                    class="compose-details-pane"
-                    :style="{ width: `${detailsPaneWidth}px` }"
-                >
-                    <div v-if="isAdd" class="compose-details-section">
-                        <h4 class="mb-3">{{ $t("general") }}</h4>
-                        <div class="shadow-box big-padding mb-3">
-                            <div>
-                                <label for="name" class="form-label">{{ $t("stackName") }}</label>
-                                <input id="name" v-model="stack.name" type="text" class="form-control" required @blur="stackNameToLowercase">
-                                <div class="form-text">{{ $t("Lowercase only") }}</div>
-                            </div>
-
-                            <div class="mt-3">
-                                <label for="name" class="form-label">{{ $t("dockgeAgent") }}</label>
-                                <select v-model="stack.endpoint" class="form-select">
-                                    <option v-for="(agent, agentEndpoint) in $root.agentList" :key="agentEndpoint" :value="agentEndpoint" :disabled="$root.agentStatusList[agentEndpoint] != 'online'">
-                                        ({{ $root.agentStatusList[agentEndpoint] }}) {{ (agent.name !== '') ? agent.name : agent.url || $t("Current") }}
-                                    </option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="compose-details-section">
-                        <h4 class="mb-3">{{ $tc("container", 2) }}</h4>
-
-                        <div v-if="isEditMode" class="input-group mb-3">
-                            <input
-                                v-model="newContainerName"
-                                :placeholder="$t(`New Container Name...`)"
-                                class="form-control"
-                                @keyup.enter="addContainer"
-                            />
-                            <button class="btn btn-primary" @click="addContainer">
-                                {{ $t("addContainer") }}
+                <div class="compose-workbench">
+                    <section class="compose-editor-pane">
+                        <div class="compose-editor-header">
+                            <h4 class="mb-0">{{ stack.composeFileName }}</h4>
+                            <button class="btn btn-normal btn-sm" type="button" @click="toggleComposeFocusMode">
+                                <font-awesome-icon :icon="composeFocusMode ? 'compress' : 'expand'" class="me-1" />
+                                {{ composeFocusMode ? $t("exitFocusMode") : $t("focusEditor") }}
                             </button>
                         </div>
 
-                        <div ref="containerList">
-                            <Container
-                                v-for="(service, name) in jsonConfig.services"
-                                :key="name"
-                                :name="name"
-                                :is-edit-mode="isEditMode"
-                                :first="name === Object.keys(jsonConfig.services)[0]"
-                                :serviceStatus="serviceStatusList[name]"
-                                :dockerStats="dockerStats"
-                                @start-service="startService"
-                                @stop-service="stopService"
-                                @restart-service="restartService"
-                            />
-                        </div>
-                    </div>
-
-                    <div v-if="isEditMode" class="compose-details-section">
-                        <h4 class="mb-3">{{ $t("extra") }}</h4>
-                        <div class="shadow-box big-padding mb-3">
-                            <div class="mb-4">
-                                <label class="form-label">
-                                    {{ $tc("url", 2) }}
-                                </label>
-                                <ArrayInput name="urls" :display-name="$t('url')" placeholder="https://" object-type="x-dockge" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div v-if="isEditMode" class="compose-details-section">
-                        <h4 class="mb-3">.env</h4>
-                        <div class="shadow-box mb-3 editor-box compose-env-editor" :class="{ 'edit-mode' : isEditMode }">
+                        <div class="shadow-box mb-3 editor-box compose-yaml-editor" :class="{ 'edit-mode' : isEditMode }">
                             <code-mirror
-                                ref="envEditor"
-                                v-model="stack.composeENV"
-                                :extensions="extensionsEnv"
+                                ref="editor"
+                                v-model="stack.composeYAML"
+                                :extensions="extensions"
                                 minimal
                                 wrap="true"
                                 dark="true"
@@ -219,28 +113,148 @@
                                 @change="yamlCodeChange"
                             />
                         </div>
-                    </div>
 
-                    <div v-if="isEditMode" class="compose-details-section">
-                        <h4 class="mb-3">{{ $tc("network", 2) }}</h4>
-                        <div class="shadow-box big-padding mb-3">
-                            <NetworkInput />
+                        <div v-if="isEditMode && yamlError" class="alert alert-danger py-2 mb-3" role="alert">
+                            {{ yamlError }}
                         </div>
-                    </div>
+                    </section>
 
-                    <div v-show="!isEditMode" class="compose-details-section">
-                        <h4 class="mb-3">{{ $t("terminal") }}</h4>
+                    <button
+                        v-if="!composeFocusMode && !shouldStackDetailsPane"
+                        class="pane-resizer details-resizer"
+                        type="button"
+                        tabindex="0"
+                        role="separator"
+                        aria-orientation="vertical"
+                        :aria-label="$t('resizeDetailsPane')"
+                        aria-controls="compose-details-pane"
+                        :aria-valuemin="detailsPaneConfig.minWidth"
+                        :aria-valuemax="detailsPaneConfig.maxWidth"
+                        :aria-valuenow="detailsPaneWidth"
+                        @pointerdown="startDetailsResize"
+                        @keydown="handleDetailsResizeKeydown"
+                    ></button>
+
+                    <aside
+                        v-show="!composeFocusMode"
+                        id="compose-details-pane"
+                        class="compose-details-pane"
+                        :style="{ width: `${detailsPaneWidth}px` }"
+                    >
+                        <div v-if="isAdd" class="compose-details-section">
+                            <h4 class="mb-3">{{ $t("general") }}</h4>
+                            <div class="shadow-box big-padding mb-3">
+                                <div>
+                                    <label for="name" class="form-label">{{ $t("stackName") }}</label>
+                                    <input id="name" v-model="stack.name" type="text" class="form-control" required @blur="stackNameToLowercase">
+                                    <div class="form-text">{{ $t("Lowercase only") }}</div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <label for="name" class="form-label">{{ $t("dockgeAgent") }}</label>
+                                    <select v-model="stack.endpoint" class="form-select">
+                                        <option v-for="(agent, agentEndpoint) in $root.agentList" :key="agentEndpoint" :value="agentEndpoint" :disabled="$root.agentStatusList[agentEndpoint] != 'online'">
+                                            ({{ $root.agentStatusList[agentEndpoint] }}) {{ (agent.name !== '') ? agent.name : agent.url || $t("Current") }}
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="compose-details-section">
+                            <h4 class="mb-3">{{ $tc("container", 2) }}</h4>
+
+                            <div v-if="isEditMode" class="input-group mb-3">
+                                <input
+                                    v-model="newContainerName"
+                                    :placeholder="$t(`New Container Name...`)"
+                                    class="form-control"
+                                    @keyup.enter="addContainer"
+                                />
+                                <button class="btn btn-primary" @click="addContainer">
+                                    {{ $t("addContainer") }}
+                                </button>
+                            </div>
+
+                            <div ref="containerList">
+                                <Container
+                                    v-for="(service, name) in jsonConfig.services"
+                                    :key="name"
+                                    :name="name"
+                                    :is-edit-mode="isEditMode"
+                                    :first="name === Object.keys(jsonConfig.services)[0]"
+                                    :serviceStatus="serviceStatusList[name]"
+                                    :dockerStats="dockerStats"
+                                    @start-service="startService"
+                                    @stop-service="stopService"
+                                    @restart-service="restartService"
+                                />
+                            </div>
+                        </div>
+
+                        <div v-if="isEditMode" class="compose-details-section">
+                            <h4 class="mb-3">{{ $t("extra") }}</h4>
+                            <div class="shadow-box big-padding mb-3">
+                                <div class="mb-4">
+                                    <label class="form-label">
+                                        {{ $tc("url", 2) }}
+                                    </label>
+                                    <ArrayInput name="urls" :display-name="$t('url')" placeholder="https://" object-type="x-dockge" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="isEditMode" class="compose-details-section">
+                            <h4 class="mb-3">.env</h4>
+                            <div class="shadow-box mb-3 editor-box compose-env-editor" :class="{ 'edit-mode' : isEditMode }">
+                                <code-mirror
+                                    ref="envEditor"
+                                    v-model="stack.composeENV"
+                                    :extensions="extensionsEnv"
+                                    minimal
+                                    wrap="true"
+                                    dark="true"
+                                    tab="true"
+                                    :disabled="!isEditMode"
+                                    :hasFocus="editorFocus"
+                                    @change="yamlCodeChange"
+                                />
+                            </div>
+                        </div>
+
+                        <div v-if="isEditMode" class="compose-details-section">
+                            <h4 class="mb-3">{{ $tc("network", 2) }}</h4>
+                            <div class="shadow-box big-padding mb-3">
+                                <NetworkInput />
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+
+                <section v-show="!isEditMode" class="compose-terminal-panel" :class="{ 'is-collapsed': combinedTerminalCollapsed }">
+                    <div class="compose-terminal-header">
+                        <h4 class="mb-0">{{ $t("terminal") }}</h4>
+                        <button
+                            class="btn btn-normal btn-sm"
+                            type="button"
+                            :aria-expanded="!combinedTerminalCollapsed"
+                            :aria-label="combinedTerminalCollapsed ? 'Show terminal' : 'Hide terminal'"
+                            @click="toggleCombinedTerminalPanel"
+                        >
+                            <font-awesome-icon :icon="combinedTerminalCollapsed ? 'chevron-up' : 'chevron-down'" />
+                        </button>
+                    </div>
+                    <div v-show="!combinedTerminalCollapsed" class="compose-terminal-body">
                         <Terminal
                             ref="combinedTerminal"
-                            class="mb-3 terminal"
+                            class="terminal compose-bottom-terminal"
                             :name="combinedTerminalName"
                             :endpoint="endpoint"
                             :rows="combinedTerminalRows"
                             :cols="combinedTerminalCols"
-                            style="height: 315px;"
                         ></Terminal>
                     </div>
-                </aside>
+                </section>
             </div>
 
             <div v-if="!stack.isManagedByDockge && !processing">
@@ -353,6 +367,7 @@ export default {
             progressTerminalRows: PROGRESS_TERMINAL_ROWS,
             combinedTerminalRows: COMBINED_TERMINAL_ROWS,
             combinedTerminalCols: COMBINED_TERMINAL_COLS,
+            combinedTerminalCollapsed: false,
             stack: {
 
             },
@@ -680,6 +695,16 @@ export default {
             this.$refs.progressTerminal?.bind(this.endpoint, this.terminalName);
         },
 
+        toggleCombinedTerminalPanel() {
+            this.combinedTerminalCollapsed = !this.combinedTerminalCollapsed;
+
+            if (!this.combinedTerminalCollapsed) {
+                this.$nextTick(() => {
+                    this.$refs.combinedTerminal?.updateTerminalSize?.();
+                });
+            }
+        },
+
         loadStack() {
             this.processing = true;
             this.$root.emitAgent(this.endpoint, "getStack", this.stack.name, (res) => {
@@ -951,6 +976,10 @@ export default {
     font-size: 14px;
 }
 
+.compose-workspace {
+    min-width: 0;
+}
+
 .compose-workbench {
     align-items: stretch;
     display: flex;
@@ -980,6 +1009,38 @@ export default {
 
 .compose-details-section {
     min-width: 0;
+}
+
+.compose-terminal-panel {
+    margin-top: 8px;
+    min-width: 0;
+}
+
+.compose-terminal-header {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    min-width: 0;
+}
+
+.compose-terminal-header .btn {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-height: 40px;
+    min-width: 40px;
+    padding: 0;
+}
+
+.compose-terminal-body {
+    min-width: 0;
+}
+
+.compose-bottom-terminal {
+    height: clamp(320px, 34vh, 460px);
+    margin-bottom: 1rem;
 }
 
 .compose-yaml-editor,
@@ -1012,7 +1073,9 @@ export default {
 }
 
 .compose-details-stacked {
-    display: block;
+    .compose-workbench {
+        display: block;
+    }
 
     .compose-editor-pane {
         min-width: 0;

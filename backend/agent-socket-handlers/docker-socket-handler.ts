@@ -216,7 +216,44 @@ export class DockerSocketHandler {
             }
         });
 
-        agentSocket.on("applyStackUpdates", async (stackName : unknown, serviceNames : unknown, callback) => {
+        agentSocket.on("checkAllStackUpdates", async (callback) => {
+            try {
+                checkLogin(socket);
+
+                const stackList = await Stack.getStackList(server);
+                const stacks = [];
+
+                for (const [ stackName, stack ] of stackList) {
+                    if (!stack.isManagedByDockge) {
+                        continue;
+                    }
+
+                    try {
+                        const updates = await stack.checkUpdates();
+                        stacks.push({
+                            name: stackName,
+                            services: updates.services,
+                        });
+                    } catch (e) {
+                        stacks.push({
+                            name: stackName,
+                            error: e instanceof Error ? e.message : "Update check failed",
+                            services: [],
+                        });
+                    }
+                }
+
+                callbackResult({
+                    ok: true,
+                    checkedAt: new Date().toISOString(),
+                    stacks,
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        const applySelectedStackUpdates = async (stackName : unknown, serviceNames : unknown, callback : unknown) => {
             try {
                 checkLogin(socket);
 
@@ -241,7 +278,10 @@ export class DockerSocketHandler {
             } catch (e) {
                 callbackError(e, callback);
             }
-        });
+        };
+
+        agentSocket.on("applyStackUpdates", applySelectedStackUpdates);
+        agentSocket.on("applyStackServiceUpdates", applySelectedStackUpdates);
 
         // down stack
         agentSocket.on("downStack", async (stackName : unknown, callback) => {

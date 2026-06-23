@@ -4,10 +4,10 @@
             <div class="header-top">
                 <div class="placeholder"></div>
                 <div class="search-wrapper">
-                    <button v-if="searchText == ''" class="search-icon" type="button" aria-label="Compose-Projekte suchen" @click="openProjectSearch">
+                    <button v-if="searchText == ''" class="search-icon" type="button" :aria-label="$t('searchComposeProjects')" @click="openProjectSearch">
                         <font-awesome-icon icon="search" />
                     </button>
-                    <button v-if="searchText != ''" class="search-icon" type="button" aria-label="Suche leeren" @click="clearSearchText">
+                    <button v-if="searchText != ''" class="search-icon" type="button" :aria-label="$t('clearSearch')" @click="clearSearchText">
                         <font-awesome-icon icon="times" />
                     </button>
                     <form @submit.prevent="openProjectSearchFromInput">
@@ -17,7 +17,7 @@
                             class="form-control search-input"
                             name="stack-search"
                             autocomplete="off"
-                            aria-label="Stacks suchen"
+                            :aria-label="$t('searchStacks')"
                             :placeholder="stackSearchPlaceholder"
                             @focus="openProjectSearchFromInput"
                         />
@@ -51,7 +51,7 @@
 
     <transition name="project-search-fade">
         <div v-if="showProjectSearch" class="project-search-backdrop" @mousedown.self="closeProjectSearch">
-            <div class="project-search-dialog" role="dialog" aria-modal="true" aria-label="Compose-Projekte suchen">
+            <div class="project-search-dialog" role="dialog" aria-modal="true" :aria-label="$t('searchComposeProjects')">
                 <div class="project-search-input-row">
                     <font-awesome-icon icon="search" class="project-search-icon" />
                     <input
@@ -60,7 +60,7 @@
                         class="project-search-input"
                         type="search"
                         name="project-search"
-                        placeholder="Compose-Projekt suchen"
+                        :placeholder="$t('searchComposeProjects')"
                         role="combobox"
                         aria-controls="project-search-results"
                         :aria-expanded="showProjectSearch"
@@ -68,7 +68,7 @@
                         autocomplete="off"
                         @keydown="handleProjectSearchKeydown"
                     />
-                    <button class="btn btn-normal btn-sm project-search-close" type="button" aria-label="Projektsuche schliessen" @click="closeProjectSearch">
+                    <button class="btn btn-normal btn-sm project-search-close" type="button" :aria-label="$t('closeProjectSearch')" @click="closeProjectSearch">
                         <font-awesome-icon icon="times" />
                     </button>
                 </div>
@@ -94,7 +94,7 @@
                     </button>
 
                     <div v-if="filteredProjectSearchItems.length === 0" class="project-search-empty">
-                        Keine Compose-Projekte gefunden
+                        {{ $t("noComposeProjectsFound") }}
                     </div>
                 </div>
             </div>

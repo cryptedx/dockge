@@ -112,5 +112,12 @@
     "dockgeAgent": "سيرفر Dockge",
     "removeAgent": "حذف الوكيل",
     "removeAgentMsg": "هل انت متأكد من حذف هذا الوكيل؟",
-    "LongSyntaxNotSupported": "كتابة النصوص المدعومة غير المدعومة هنا. الرجاء استخدام محرر YAML."
+    "LongSyntaxNotSupported": "كتابة النصوص المدعومة غير المدعومة هنا. الرجاء استخدام محرر YAML.",
+    "searchComposeProjects": "Search compose projects",
+    "clearSearch": "Clear search",
+    "searchStacks": "Search stacks",
+    "closeProjectSearch": "Close project search",
+    "noComposeProjectsFound": "No compose projects found",
+    "toggleStats": "Toggle statistics",
+    "editAgentName": "Edit agent name"
 }

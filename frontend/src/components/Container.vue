@@ -75,7 +75,7 @@
                     <button
                         class="btn btn-sm btn-normal"
                         type="button"
-                        aria-label="Statistiken ein-/ausklappen"
+                        :aria-label="$t('toggleStats')"
                         :aria-expanded="expandedStats"
                         @click="expandedStats = !expandedStats"
                     >
@@ -236,7 +236,7 @@ export default defineComponent({
         },
 
         fieldIdPrefix() {
-            return `container-${this.name.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+            return `container-${encodeURIComponent(this.name)}`;
         },
 
         dockerImageInputId() {

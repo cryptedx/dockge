@@ -70,7 +70,7 @@
                                 v-if="agentItem.name !== ''"
                                 class="agent-icon-button"
                                 type="button"
-                                aria-label="Agentnamen bearbeiten"
+                                :aria-label="$t('editAgentName')"
                                 @click="showEditAgentNameDialog[agentItem.name] = !showEditAgentNameDialog[agentItem.name]"
                             >
                                 <font-awesome-icon icon="pen-to-square" />
@@ -87,7 +87,7 @@
                                 v-if="endpoint !== ''"
                                 class="agent-icon-button ms-2 remove-agent"
                                 type="button"
-                                aria-label="Agent entfernen"
+                                :aria-label="$t('removeAgent')"
                                 @click="showRemoveAgentDialog[agentItem.url] = !showRemoveAgentDialog[agentItem.url]"
                             >
                                 <font-awesome-icon icon="trash" />

@@ -30,5 +30,12 @@
     "scanFolder": "Skann Stacks mappe",
     "dockerImage": "Bilde",
     "languageName": "Engelsk",
-    "startStack": "Start"
+    "startStack": "Start",
+    "searchComposeProjects": "Search compose projects",
+    "clearSearch": "Clear search",
+    "searchStacks": "Search stacks",
+    "closeProjectSearch": "Close project search",
+    "noComposeProjectsFound": "No compose projects found",
+    "toggleStats": "Toggle statistics",
+    "editAgentName": "Edit agent name"
 }

@@ -113,6 +113,13 @@
     "connecting": "Падключэнне",
     "connect": "Падключыць",
     "addAgent": "Дадаць Агента",
+    "searchComposeProjects": "Search compose projects",
+    "clearSearch": "Clear search",
+    "searchStacks": "Search stacks",
+    "closeProjectSearch": "Close project search",
+    "noComposeProjectsFound": "No compose projects found",
+    "toggleStats": "Toggle statistics",
+    "editAgentName": "Edit agent name",
     "agentAddedSuccessfully": "Агент паспяхова дададзены.",
     "agentRemovedSuccessfully": "Агент паспяхова выдалены.",
     "removeAgent": "Выдаліць агента"

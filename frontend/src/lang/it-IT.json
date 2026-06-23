@@ -114,6 +114,13 @@
     "removeAgent": "Rimuovi Agente",
     "removeAgentMsg": "Sei sicuro di voler rimuovere questo agente?",
     "addAgent": "Aggungi Agente",
+    "searchComposeProjects": "Search compose projects",
+    "clearSearch": "Clear search",
+    "searchStacks": "Search stacks",
+    "closeProjectSearch": "Close project search",
+    "noComposeProjectsFound": "No compose projects found",
+    "toggleStats": "Toggle statistics",
+    "editAgentName": "Edit agent name",
     "agentAddedSuccessfully": "Agente aggiunto correttamente.",
     "LongSyntaxNotSupported": "La sintassi lunga non è supportata qui. Utilizzare l'editor YAML."
 }

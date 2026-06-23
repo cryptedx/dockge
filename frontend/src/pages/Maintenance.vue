@@ -173,12 +173,30 @@ export default {
         },
         summaryItems() {
             return [
-                { label: "Agents", value: this.summary.agents },
-                { label: "Stacks", value: this.summary.stacks },
-                { label: "Services", value: this.summary.services },
-                { label: "Updates", value: this.summary.updates },
-                { label: "Unknown", value: this.summary.unknown },
-                { label: "Failed agents", value: this.summary.failedAgents },
+                {
+                    label: "Agents",
+                    value: this.summary.agents,
+                },
+                {
+                    label: "Stacks",
+                    value: this.summary.stacks,
+                },
+                {
+                    label: "Services",
+                    value: this.summary.services,
+                },
+                {
+                    label: "Updates",
+                    value: this.summary.updates,
+                },
+                {
+                    label: "Unknown",
+                    value: this.summary.unknown,
+                },
+                {
+                    label: "Failed agents",
+                    value: this.summary.failedAgents,
+                },
             ];
         },
         agentOptions() {

@@ -16,8 +16,16 @@ const scans = [
             {
                 name: "media",
                 services: [
-                    { service: "plex", image: "plex:latest", status: "update-available" },
-                    { service: "db", image: "postgres:16", status: "current" },
+                    {
+                        service: "plex",
+                        image: "plex:latest",
+                        status: "update-available",
+                    },
+                    {
+                        service: "db",
+                        image: "postgres:16",
+                        status: "current",
+                    },
                 ],
             },
         ],
@@ -30,8 +38,17 @@ const scans = [
             {
                 name: "tools",
                 services: [
-                    { service: "wiki", image: "wiki:latest", status: "update-available" },
-                    { service: "cache", image: "redis:7", status: "unknown", reason: "No local repo digest found" },
+                    {
+                        service: "wiki",
+                        image: "wiki:latest",
+                        status: "update-available",
+                    },
+                    {
+                        service: "cache",
+                        image: "redis:7",
+                        status: "unknown",
+                        reason: "No local repo digest found",
+                    },
                 ],
             },
         ],

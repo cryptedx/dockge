@@ -9,6 +9,7 @@ import Compose from "./pages/Compose.vue";
 import ContainerTerminal from "./pages/ContainerTerminal.vue";
 
 const Settings = () => import("./pages/Settings.vue");
+const Maintenance = () => import("./pages/Maintenance.vue");
 
 // Settings - Sub Pages
 import Appearance from "./components/settings/Appearance.vue";
@@ -62,6 +63,10 @@ const routes = [
                     {
                         path: "/console/:endpoint",
                         component: Console,
+                    },
+                    {
+                        path: "/maintenance",
+                        component: Maintenance,
                     },
                     {
                         path: "/settings",

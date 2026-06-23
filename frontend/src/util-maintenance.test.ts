@@ -3,6 +3,7 @@ import {
     buildMaintenanceQueue,
     flattenMaintenanceScan,
     getMaintenanceSummary,
+    getMaintenanceProgressPercent,
     getSelectableAgentKeys,
     getSelectableStackKeys,
 } from "./util-maintenance";
@@ -67,6 +68,37 @@ assert.equal(rows.length, 4);
 assert.equal(rows[0].key, "_media_plex");
 assert.equal(rows[2].key, "tcp://agent:5001_tools_wiki");
 assert.equal(rows[3].selectable, false);
+
+const duplicateRows = flattenMaintenanceScan([
+    {
+        endpoint: "",
+        name: "Current",
+        ok: true,
+        stacks: [
+            {
+                name: "immich",
+                services: [
+                    {
+                        service: "redis",
+                        image: "valkey:9",
+                        status: "current",
+                    },
+                    {
+                        service: "redis",
+                        image: "valkey:9",
+                        status: "update-available",
+                    },
+                ],
+            },
+        ],
+    },
+]);
+assert.equal(duplicateRows.length, 1);
+assert.equal(duplicateRows[0].status, "update-available");
+assert.equal(duplicateRows[0].selectable, true);
+assert.equal(getMaintenanceProgressPercent(0, 0), 0);
+assert.equal(getMaintenanceProgressPercent(1, 4), 25);
+assert.equal(getMaintenanceProgressPercent(5, 4), 100);
 
 assert.deepEqual(getMaintenanceSummary(rows, scans), {
     agents: 3,

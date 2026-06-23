@@ -41,14 +41,26 @@ export function maintenanceKey(endpoint: string, stackName: string, serviceName:
 }
 
 export function flattenMaintenanceScan(scans: MaintenanceScan[]): MaintenanceRow[] {
-    return scans.flatMap((scan) => scan.stacks.flatMap((stack) => stack.services.map((service) => ({
-        ...service,
-        key: maintenanceKey(scan.endpoint, stack.name, service.service),
-        endpoint: scan.endpoint,
-        agentName: scan.name,
-        stackName: stack.name,
-        selectable: service.status === "update-available",
-    }))));
+    const rows = new Map<string, MaintenanceRow>();
+    for (const scan of scans) {
+        for (const stack of scan.stacks) {
+            for (const service of stack.services) {
+                const key = maintenanceKey(scan.endpoint, stack.name, service.service);
+                const row = {
+                    ...service,
+                    key,
+                    endpoint: scan.endpoint,
+                    agentName: scan.name,
+                    stackName: stack.name,
+                    selectable: service.status === "update-available",
+                };
+                if (!rows.has(key) || service.status === "update-available") {
+                    rows.set(key, row);
+                }
+            }
+        }
+    }
+    return [ ...rows.values() ];
 }
 
 export function getMaintenanceSummary(rows: MaintenanceRow[], scans: MaintenanceScan[]) {
@@ -60,6 +72,13 @@ export function getMaintenanceSummary(rows: MaintenanceRow[], scans: Maintenance
         updates: rows.filter((row) => row.status === "update-available").length,
         unknown: rows.filter((row) => row.status === "unknown").length,
     };
+}
+
+export function getMaintenanceProgressPercent(done: number, total: number) {
+    if (total <= 0) {
+        return 0;
+    }
+    return Math.min(100, Math.round((done / total) * 100));
 }
 
 export function getSelectableStackKeys(rows: MaintenanceRow[], endpoint: string, stackName: string) {

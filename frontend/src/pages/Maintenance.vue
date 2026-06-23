@@ -31,6 +31,24 @@
                 <input v-model="searchText" class="form-control" type="search" placeholder="Search stack, service, image" />
             </div>
 
+            <div v-if="scanning" class="shadow-box big-padding mb-3 maintenance-progress">
+                <div class="maintenance-progress-head">
+                    <strong>{{ scanProgressTitle }}</strong>
+                    <span>{{ scanPercent }}%</span>
+                </div>
+                <div class="progress">
+                    <div
+                        class="progress-bar"
+                        role="progressbar"
+                        :style="{ width: `${scanPercent}%` }"
+                        :aria-valuenow="scanPercent"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                    ></div>
+                </div>
+                <small>{{ scanDone }} / {{ scanTotal }} stacks scanned</small>
+            </div>
+
             <div v-if="failedScans.length > 0" class="alert alert-warning py-2 mb-3" role="alert">
                 <div v-for="scan in failedScans" :key="scan.endpoint || 'current'">
                     {{ scan.name }}: {{ scan.error }}
@@ -139,6 +157,7 @@ import { BModal } from "bootstrap-vue-next";
 import {
     buildMaintenanceQueue,
     flattenMaintenanceScan,
+    getMaintenanceProgressPercent,
     getMaintenanceSummary,
     getSelectableAgentKeys,
     getSelectableStackKeys,
@@ -155,9 +174,13 @@ export default {
             selected: {},
             queue: [],
             queueRunning: false,
+            scanDone: 0,
             updatesOnly: true,
             agentFilter: "",
             searchText: "",
+            scanCurrentAgent: "",
+            scanCurrentStack: "",
+            scanTotal: 0,
             confirmUpdate: false,
         };
     },
@@ -241,6 +264,15 @@ export default {
             }
             return "finished";
         },
+        scanPercent() {
+            return getMaintenanceProgressPercent(this.scanDone, this.scanTotal);
+        },
+        scanProgressTitle() {
+            if (!this.scanCurrentStack) {
+                return "Preparing scan";
+            }
+            return `Scanning ${this.scanCurrentAgent} / ${this.scanCurrentStack}`;
+        },
     },
     methods: {
         scanAllAgents() {
@@ -248,9 +280,12 @@ export default {
             this.scanResults = [];
             this.selected = {};
             this.queue = [];
+            this.scanDone = 0;
+            this.scanCurrentAgent = "";
+            this.scanCurrentStack = "";
 
             const agents = this.getAgentTargets();
-            let pending = 0;
+            const tasks = [];
 
             for (const agent of agents) {
                 if (agent.status !== "online") {
@@ -264,39 +299,59 @@ export default {
                     continue;
                 }
 
-                pending++;
-                this.$root.emitAgent(agent.endpoint, "checkAllStackUpdates", (res) => {
+                this.scanResults.push({
+                    endpoint: agent.endpoint,
+                    name: agent.name,
+                    ok: true,
+                    stacks: [],
+                });
+                for (const stackName of agent.stacks) {
+                    tasks.push({
+                        ...agent,
+                        stackName,
+                    });
+                }
+            }
+
+            this.scanTotal = tasks.length;
+            if (tasks.length === 0) {
+                this.finishScan();
+                return;
+            }
+            this.runNextScanTask(tasks, 0);
+        },
+        runNextScanTask(tasks, index) {
+            const task = tasks[index];
+            this.scanCurrentAgent = task.name;
+            this.scanCurrentStack = task.stackName;
+
+            this.$root.emitAgent(task.endpoint, "checkStackUpdates", task.stackName, (res) => {
+                const scan = this.scanResults.find((item) => item.endpoint === task.endpoint);
+                if (scan) {
                     if (res.ok) {
-                        this.scanResults.push({
-                            endpoint: agent.endpoint,
-                            name: agent.name,
-                            ok: true,
-                            checkedAt: res.checkedAt,
-                            stacks: res.stacks,
+                        scan.stacks.push({
+                            name: task.stackName,
+                            services: res.updates.services,
                         });
                     } else {
-                        this.scanResults.push({
-                            endpoint: agent.endpoint,
-                            name: agent.name,
-                            ok: false,
-                            error: res.msg || "Scan failed",
-                            stacks: [],
-                        });
+                        scan.ok = false;
+                        scan.error = res.msg || `${task.stackName}: Scan failed`;
                     }
+                    this.scanResults = [ ...this.scanResults ];
+                }
 
-                    pending--;
-                    if (pending === 0) {
-                        this.finishScan();
-                    }
-                });
-            }
-
-            if (pending === 0) {
-                this.finishScan();
-            }
+                this.scanDone = index + 1;
+                if (this.scanDone === tasks.length) {
+                    this.finishScan();
+                    return;
+                }
+                this.runNextScanTask(tasks, index + 1);
+            });
         },
         finishScan() {
             this.scanning = false;
+            this.scanCurrentAgent = "";
+            this.scanCurrentStack = "";
             this.selectAllUpdateable();
         },
         getAgentTargets() {
@@ -305,6 +360,7 @@ export default {
                     endpoint: "",
                     name: this.$t("currentEndpoint"),
                     status: this.$root.agentStatusList[""] || "online",
+                    stacks: this.getAgentStackNames(""),
                 },
             ];
 
@@ -313,10 +369,19 @@ export default {
                     endpoint,
                     name: agent.name || endpoint,
                     status: this.$root.agentStatusList[endpoint] || "offline",
+                    stacks: this.getAgentStackNames(endpoint),
                 });
             }
 
             return agents;
+        },
+        getAgentStackNames(endpoint) {
+            const stackList = endpoint
+                ? this.$root.allAgentStackList[endpoint]?.stackList
+                : this.$root.stackList;
+            return Object.entries(stackList || {})
+                .filter((entry) => entry[1]?.isManagedByDockge !== false)
+                .map((entry) => entry[0]);
         },
         selectAllUpdateable() {
             const selected = {};
@@ -437,7 +502,7 @@ export default {
 .maintenance-empty,
 .maintenance-reason,
 .maintenance-job-services {
-    color: $dark-font-color2;
+    color: $dark-font-color3;
 }
 
 .maintenance-summary {
@@ -462,6 +527,30 @@ export default {
 
 .maintenance-table {
     min-width: 1080px;
+    --bs-table-bg: transparent;
+    --bs-table-color: inherit;
+    --bs-table-border-color: rgba(255, 255, 255, 0.08);
+
+    .dark & {
+        --bs-table-bg: #0d1117;
+        --bs-table-color: #b1b8c0;
+        --bs-table-border-color: #1d2634;
+        --bs-table-hover-bg: #161b22;
+        background-color: #0d1117;
+    }
+}
+
+.maintenance-progress-head {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.maintenance-progress small {
+    color: $dark-font-color3;
+    display: block;
+    margin-top: 8px;
 }
 
 .maintenance-check {

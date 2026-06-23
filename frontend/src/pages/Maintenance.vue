@@ -178,10 +178,9 @@ import {
     getSelectableAgentKeys,
     getSelectableStackKeys,
     isCurrentMaintenanceScan,
+    MAINTENANCE_SNAPSHOT_KEY,
     parseMaintenanceSnapshot,
 } from "../util-maintenance";
-
-const MAINTENANCE_SNAPSHOT_KEY = "dockge.maintenance.lastScan";
 
 export default {
     components: {

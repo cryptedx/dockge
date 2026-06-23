@@ -41,6 +41,8 @@ export interface MaintenanceSnapshot {
     selected: Record<string, boolean>;
 }
 
+export const MAINTENANCE_SNAPSHOT_KEY = "dockge.maintenance.lastScan";
+
 export function maintenanceKey(endpoint: string, stackName: string, serviceName: string) {
     return `${endpoint}_${stackName}_${serviceName}`;
 }
@@ -106,6 +108,17 @@ export function parseMaintenanceSnapshot(value: string | null): MaintenanceSnaps
     } catch {
         return undefined;
     }
+}
+
+export function getMaintenanceSnapshotStack(snapshot: MaintenanceSnapshot | undefined, endpoint: string, stackName: string) {
+    const scan = snapshot?.scanResults.find((item) => item.endpoint === endpoint);
+    const stack = scan?.stacks.find((item) => item.name === stackName);
+    if (!stack) {
+        return undefined;
+    }
+    return {
+        services: stack.services,
+    };
 }
 
 export function getSelectableStackKeys(rows: MaintenanceRow[], endpoint: string, stackName: string) {

@@ -4,6 +4,7 @@ import {
     flattenMaintenanceScan,
     getMaintenanceSummary,
     getMaintenanceProgressPercent,
+    getMaintenanceSnapshotStack,
     getSelectableAgentKeys,
     getSelectableStackKeys,
     isCurrentMaintenanceScan,
@@ -116,6 +117,17 @@ assert.deepEqual(parseMaintenanceSnapshot(JSON.stringify({
         "_media_plex": true,
     },
 });
+assert.deepEqual(getMaintenanceSnapshotStack({
+    scanResults: scans,
+    selected: {},
+}, "tcp://agent:5001", "tools"), {
+    services: scans[1].stacks[0].services,
+});
+assert.equal(getMaintenanceSnapshotStack(undefined, "", "media"), undefined);
+assert.equal(getMaintenanceSnapshotStack({
+    scanResults: scans,
+    selected: {},
+}, "", "missing"), undefined);
 
 assert.deepEqual(getMaintenanceSummary(rows, scans), {
     agents: 3,

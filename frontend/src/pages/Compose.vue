@@ -383,6 +383,11 @@ import {
     shouldCollapseSecondaryPanes,
     writePaneWidth,
 } from "../util-split-pane";
+import {
+    getMaintenanceSnapshotStack,
+    MAINTENANCE_SNAPSHOT_KEY,
+    parseMaintenanceSnapshot,
+} from "../util-maintenance";
 
 const template = `
 services:
@@ -912,8 +917,7 @@ export default {
             this.$root.emitAgent(this.endpoint, "getStack", this.stack.name, (res) => {
                 if (res.ok) {
                     this.stack = res.stack;
-                    this.updateCheck = null;
-                    this.selectedUpdates = {};
+                    this.restoreUpdateCheck();
                     this.detailsTab = "containers";
                     this.yamlCodeChange();
                     this.processing = false;
@@ -1035,9 +1039,7 @@ export default {
                 this.updateScanRunning = false;
                 if (res.ok) {
                     this.updateCheck = res.updates;
-                    for (const service of this.updateableServices) {
-                        this.selectedUpdates[service.service] = true;
-                    }
+                    this.selectUpdateableServices();
                 } else {
                     this.$root.toastRes(res);
                 }
@@ -1081,6 +1083,22 @@ export default {
                 return "bg-success";
             }
             return "bg-secondary";
+        },
+
+        restoreUpdateCheck() {
+            this.updateCheck = getMaintenanceSnapshotStack(
+                parseMaintenanceSnapshot(localStorage.getItem(MAINTENANCE_SNAPSHOT_KEY)),
+                this.endpoint,
+                this.stack.name
+            ) || null;
+            this.selectUpdateableServices();
+        },
+
+        selectUpdateableServices() {
+            this.selectedUpdates = {};
+            for (const service of this.updateableServices) {
+                this.selectedUpdates[service.service] = true;
+            }
         },
 
         deleteDialog() {

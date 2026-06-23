@@ -101,30 +101,8 @@
                                     <span>{{ row.service }}</span>
                                 </label>
                             </td>
-                            <td>
-                                <label class="maintenance-check">
-                                    <input
-                                        class="form-check-input"
-                                        type="checkbox"
-                                        :checked="isAgentSelected(row.endpoint)"
-                                        :disabled="!hasSelectableAgentRows(row.endpoint) || queueRunning"
-                                        @change="setAgentSelection(row.endpoint, $event.target.checked)"
-                                    />
-                                    <span>{{ row.agentName }}</span>
-                                </label>
-                            </td>
-                            <td>
-                                <label class="maintenance-check">
-                                    <input
-                                        class="form-check-input"
-                                        type="checkbox"
-                                        :checked="isStackSelected(row.endpoint, row.stackName)"
-                                        :disabled="!hasSelectableStackRows(row.endpoint, row.stackName) || queueRunning"
-                                        @change="setStackSelection(row.endpoint, row.stackName, $event.target.checked)"
-                                    />
-                                    <span>{{ row.stackName }}</span>
-                                </label>
-                            </td>
+                            <td>{{ row.agentName }}</td>
+                            <td>{{ row.stackName }}</td>
                             <td>{{ row.service }}</td>
                             <td class="maintenance-image">
                                 <span :title="row.image">{{ row.image }}</span>
@@ -175,8 +153,6 @@ import {
     flattenMaintenanceScan,
     getMaintenanceProgressPercent,
     getMaintenanceSummary,
-    getSelectableAgentKeys,
-    getSelectableStackKeys,
     isCurrentMaintenanceScan,
     MAINTENANCE_SNAPSHOT_KEY,
     parseMaintenanceSnapshot,
@@ -431,42 +407,6 @@ export default {
                 if (row.selectable) {
                     selected[row.key] = true;
                 }
-            }
-            this.selected = selected;
-            this.saveSnapshot();
-        },
-        selectableStackKeys(endpoint, stackName) {
-            return getSelectableStackKeys(this.rows, endpoint, stackName);
-        },
-        selectableAgentKeys(endpoint) {
-            return getSelectableAgentKeys(this.rows, endpoint);
-        },
-        hasSelectableStackRows(endpoint, stackName) {
-            return this.selectableStackKeys(endpoint, stackName).length > 0;
-        },
-        hasSelectableAgentRows(endpoint) {
-            return this.selectableAgentKeys(endpoint).length > 0;
-        },
-        isStackSelected(endpoint, stackName) {
-            const keys = this.selectableStackKeys(endpoint, stackName);
-            return keys.length > 0 && keys.every((key) => this.selected[key]);
-        },
-        isAgentSelected(endpoint) {
-            const keys = this.selectableAgentKeys(endpoint);
-            return keys.length > 0 && keys.every((key) => this.selected[key]);
-        },
-        setStackSelection(endpoint, stackName, checked) {
-            const selected = { ...this.selected };
-            for (const key of this.selectableStackKeys(endpoint, stackName)) {
-                selected[key] = checked;
-            }
-            this.selected = selected;
-            this.saveSnapshot();
-        },
-        setAgentSelection(endpoint, checked) {
-            const selected = { ...this.selected };
-            for (const key of this.selectableAgentKeys(endpoint)) {
-                selected[key] = checked;
             }
             this.selected = selected;
             this.saveSnapshot();

@@ -121,18 +121,6 @@ export function getMaintenanceSnapshotStack(snapshot: MaintenanceSnapshot | unde
     };
 }
 
-export function getSelectableStackKeys(rows: MaintenanceRow[], endpoint: string, stackName: string) {
-    return rows
-        .filter((row) => row.endpoint === endpoint && row.stackName === stackName && row.selectable)
-        .map((row) => row.key);
-}
-
-export function getSelectableAgentKeys(rows: MaintenanceRow[], endpoint: string) {
-    return rows
-        .filter((row) => row.endpoint === endpoint && row.selectable)
-        .map((row) => row.key);
-}
-
 export function buildMaintenanceQueue(rows: MaintenanceRow[], selected: Record<string, boolean>): MaintenanceUpdateJob[] {
     const jobs = new Map<string, MaintenanceUpdateJob>();
 

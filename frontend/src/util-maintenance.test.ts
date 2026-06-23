@@ -5,8 +5,6 @@ import {
     getMaintenanceSummary,
     getMaintenanceProgressPercent,
     getMaintenanceSnapshotStack,
-    getSelectableAgentKeys,
-    getSelectableStackKeys,
     isCurrentMaintenanceScan,
     parseMaintenanceSnapshot,
 } from "./util-maintenance";
@@ -137,9 +135,6 @@ assert.deepEqual(getMaintenanceSummary(rows, scans), {
     updates: 2,
     unknown: 1,
 });
-
-assert.deepEqual(getSelectableStackKeys(rows, "", "media"), [ "_media_plex" ]);
-assert.deepEqual(getSelectableAgentKeys(rows, "tcp://agent:5001"), [ "tcp://agent:5001_tools_wiki" ]);
 
 assert.deepEqual(buildMaintenanceQueue(rows, {
     "_media_plex": true,

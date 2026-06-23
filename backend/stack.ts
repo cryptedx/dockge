@@ -19,8 +19,30 @@ import {
 } from "../common/util-common";
 import { InteractiveTerminal, Terminal } from "./terminal";
 import { Settings } from "./settings";
+import {
+    compareDigests,
+    extractComposeImages,
+    fetchManifestDigest,
+    normalizeImageReference,
+    parseRepoDigests,
+    UpdateState,
+} from "./update-planner";
 
 const execFileAsync = promisify(execFile);
+
+export interface StackUpdateService {
+    service: string;
+    image: string;
+    status: UpdateState;
+    localDigests: string[];
+    remoteDigest?: string;
+    reason?: string;
+}
+
+export interface StackUpdateCheck {
+    checkedAt: string;
+    services: StackUpdateService[];
+}
 
 export class Stack {
 
@@ -459,9 +481,46 @@ export class Stack {
         return exitCode;
     }
 
-    async update(socket: DockgeSocket) {
+    async checkUpdates() : Promise<StackUpdateCheck> {
+        const configResult = await execFileAsync("docker", this.getComposeOptions("config", "--format", "json"), {
+            cwd: this.path,
+            encoding: "utf-8",
+            maxBuffer: 10 * 1024 * 1024,
+        });
+        const services = extractComposeImages(JSON.parse(configResult.stdout.toString()));
+        const results: StackUpdateService[] = [];
+
+        for (const service of services) {
+            try {
+                const localDigests = await this.getLocalImageDigests(service.image);
+                const remoteDigest = await fetchManifestDigest(normalizeImageReference(service.image));
+                const status = compareDigests(localDigests, remoteDigest);
+                results.push({
+                    ...service,
+                    status,
+                    localDigests,
+                    remoteDigest,
+                    reason: status === "unknown" ? "No local repo digest found" : undefined,
+                });
+            } catch (e) {
+                results.push({
+                    ...service,
+                    status: "unknown",
+                    localDigests: [],
+                    reason: e instanceof Error ? e.message : "Update check failed",
+                });
+            }
+        }
+
+        return {
+            checkedAt: new Date().toISOString(),
+            services: results,
+        };
+    }
+
+    async update(socket: DockgeSocket, serviceNames: string[] = []) {
         const terminalName = getComposeTerminalName(socket.endpoint, this.name);
-        let exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("pull"), this.path);
+        let exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("pull", ...serviceNames), this.path);
         if (exitCode !== 0) {
             throw new Error("Failed to pull, please check the terminal output for more information.");
         }
@@ -473,11 +532,23 @@ export class Stack {
             return exitCode;
         }
 
-        exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("up", "-d", "--remove-orphans"), this.path);
+        exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("up", "-d", "--remove-orphans", ...serviceNames), this.path);
         if (exitCode !== 0) {
             throw new Error("Failed to restart, please check the terminal output for more information.");
         }
         return exitCode;
+    }
+
+    private async getLocalImageDigests(image: string) {
+        try {
+            const result = await execFileAsync("docker", [ "image", "inspect", image, "--format", "{{json .RepoDigests}}" ], {
+                encoding: "utf-8",
+                maxBuffer: 1024 * 1024,
+            });
+            return parseRepoDigests(JSON.parse(result.stdout.toString()) ?? undefined);
+        } catch (e) {
+            return [];
+        }
     }
 
     async joinCombinedTerminal(socket: DockgeSocket) {

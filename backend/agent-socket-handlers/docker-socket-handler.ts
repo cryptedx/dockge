@@ -2,6 +2,7 @@ import { DockgeServer } from "../dockge-server";
 import { callbackError, callbackResult, checkLogin, DockgeSocket, ValidationError } from "../util-server";
 import { Stack } from "../stack";
 import { AgentSocket } from "../../common/agent-socket";
+import { isComposeServiceName } from "../update-planner";
 
 export class DockerSocketHandler {
     create(socket : DockgeSocket, server : DockgeServer, agentSocket : AgentSocket) {
@@ -186,6 +187,51 @@ export class DockerSocketHandler {
 
                 const stack = await Stack.getStack(server, stackName);
                 await stack.update(socket);
+                callbackResult({
+                    ok: true,
+                    msg: "Updated",
+                    msgi18n: true,
+                }, callback);
+                server.sendStackList();
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        agentSocket.on("checkStackUpdates", async (stackName : unknown, callback) => {
+            try {
+                checkLogin(socket);
+
+                if (typeof(stackName) !== "string") {
+                    throw new ValidationError("Stack name must be a string");
+                }
+
+                const stack = await Stack.getStack(server, stackName);
+                callbackResult({
+                    ok: true,
+                    updates: await stack.checkUpdates(),
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        agentSocket.on("applyStackUpdates", async (stackName : unknown, serviceNames : unknown, callback) => {
+            try {
+                checkLogin(socket);
+
+                if (typeof(stackName) !== "string") {
+                    throw new ValidationError("Stack name must be a string");
+                }
+                if (!Array.isArray(serviceNames) || serviceNames.some((serviceName) => typeof serviceName !== "string" || !isComposeServiceName(serviceName))) {
+                    throw new ValidationError("Service names must be a string array");
+                }
+                if (serviceNames.length === 0) {
+                    throw new ValidationError("Select at least one service to update");
+                }
+
+                const stack = await Stack.getStack(server, stackName);
+                await stack.update(socket, serviceNames);
                 callbackResult({
                     ok: true,
                     msg: "Updated",

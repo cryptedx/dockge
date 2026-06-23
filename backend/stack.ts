@@ -4,6 +4,8 @@ import { log } from "./log";
 import yaml from "yaml";
 import { DockgeSocket, fileExists, ValidationError } from "./util-server";
 import path from "path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import {
     acceptedComposeFileNames,
     COMBINED_TERMINAL_COLS,
@@ -12,13 +14,13 @@ import {
     CREATED_STACK,
     EXITED, getCombinedTerminalName,
     getComposeTerminalName, getContainerExecTerminalName,
-    PROGRESS_TERMINAL_ROWS,
     RUNNING, TERMINAL_ROWS,
     UNKNOWN
 } from "../common/util-common";
 import { InteractiveTerminal, Terminal } from "./terminal";
-import childProcessAsync from "promisify-child-process";
 import { Settings } from "./settings";
+
+const execFileAsync = promisify(execFile);
 
 export class Stack {
 
@@ -93,9 +95,10 @@ export class Stack {
      * Get the status of the stack from `docker compose ps --format json`
      */
     async ps() : Promise<object> {
-        let res = await childProcessAsync.spawn("docker", this.getComposeOptions("ps", "--format", "json"), {
+        let res = await execFileAsync("docker", this.getComposeOptions("ps", "--format", "json"), {
             cwd: this.path,
             encoding: "utf-8",
+            maxBuffer: 10 * 1024 * 1024,
         });
         if (!res.stdout) {
             return {};
@@ -299,8 +302,9 @@ export class Stack {
         }
 
         // Get status from docker compose ls
-        let res = await childProcessAsync.spawn("docker", [ "compose", "ls", "--all", "--format", "json" ], {
+        let res = await execFileAsync("docker", [ "compose", "ls", "--all", "--format", "json" ], {
             encoding: "utf-8",
+            maxBuffer: 10 * 1024 * 1024,
         });
 
         if (!res.stdout) {
@@ -336,8 +340,9 @@ export class Stack {
     static async getStatusList() : Promise<Map<string, number>> {
         let statusList = new Map<string, number>();
 
-        let res = await childProcessAsync.spawn("docker", [ "compose", "ls", "--all", "--format", "json" ], {
+        let res = await execFileAsync("docker", [ "compose", "ls", "--all", "--format", "json" ], {
             encoding: "utf-8",
+            maxBuffer: 10 * 1024 * 1024,
         });
 
         if (!res.stdout) {
@@ -511,9 +516,10 @@ export class Stack {
         let statusList = new Map<string, Array<object>>();
 
         try {
-            let res = await childProcessAsync.spawn("docker", this.getComposeOptions("ps", "--format", "json"), {
+            let res = await execFileAsync("docker", this.getComposeOptions("ps", "--format", "json"), {
                 cwd: this.path,
                 encoding: "utf-8",
+                maxBuffer: 10 * 1024 * 1024,
             });
 
             if (!res.stdout) {

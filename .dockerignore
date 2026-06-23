@@ -9,7 +9,7 @@ tmp
 
 # Docker extra
 docker
-frontend
+frontend-dist
 .editorconfig
 .eslintrc.cjs
 .git

@@ -17,4 +17,5 @@ RUN apt update && apt install --yes --no-install-recommends \
          docker-ce-cli \
          docker-compose-plugin \
     && rm -rf /var/lib/apt/lists/* \
-    && npm install -g tsx
+    && corepack enable \
+    && corepack prepare pnpm@10.32.1 --activate

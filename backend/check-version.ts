@@ -1,5 +1,5 @@
 import { log } from "./log";
-import compareVersions from "compare-versions";
+import semver from "semver";
 import packageJSON from "../package.json";
 import { Settings } from "./settings";
 
@@ -31,8 +31,8 @@ class CheckVersion {
 
                 const checkBeta = await Settings.get("checkBeta");
 
-                if (checkBeta && data.beta) {
-                    if (compareVersions.compare(data.beta, data.slow, ">")) {
+                if (checkBeta && data.beta && data.slow) {
+                    if (semver.gt(data.beta, data.slow)) {
                         this.latestVersion = data.beta;
                         return;
                     }

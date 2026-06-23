@@ -54,12 +54,6 @@
 
                             <!-- Functions -->
 
-                            <!--<li>
-                                <router-link to="/registry" class="dropdown-item" :class="{ active: $route.path.includes('settings') }">
-                                    <font-awesome-icon icon="warehouse" /> {{ $t("registry") }}
-                                </router-link>
-                            </li>-->
-
                             <li>
                                 <button class="dropdown-item" @click="scanFolder">
                                     <font-awesome-icon icon="arrows-rotate" /> {{ $t("scanFolder") }}
@@ -97,7 +91,7 @@
 
 <script>
 import Login from "../components/Login.vue";
-import { compareVersions } from "compare-versions";
+import semver from "semver";
 import { ALL_ENDPOINTS } from "../../../common/util-common";
 
 export default {
@@ -124,7 +118,7 @@ export default {
 
         hasNewVersion() {
             if (this.$root.info.latestVersion && this.$root.info.version) {
-                return compareVersions(this.$root.info.latestVersion, this.$root.info.version) >= 1;
+                return semver.gt(this.$root.info.latestVersion, this.$root.info.version);
             } else {
                 return false;
             }

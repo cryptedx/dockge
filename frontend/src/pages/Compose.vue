@@ -81,121 +81,32 @@
                 ></Terminal>
             </transition>
 
-            <div v-if="stack.isManagedByDockge" class="row">
-                <div class="col-lg-6">
-                    <!-- General -->
-                    <div v-if="isAdd">
-                        <h4 class="mb-3">{{ $t("general") }}</h4>
-                        <div class="shadow-box big-padding mb-3">
-                            <!-- Stack Name -->
-                            <div>
-                                <label for="name" class="form-label">{{ $t("stackName") }}</label>
-                                <input id="name" v-model="stack.name" type="text" class="form-control" required @blur="stackNameToLowercase">
-                                <div class="form-text">{{ $t("Lowercase only") }}</div>
-                            </div>
-
-                            <!-- Endpoint -->
-                            <div class="mt-3">
-                                <label for="name" class="form-label">{{ $t("dockgeAgent") }}</label>
-                                <select v-model="stack.endpoint" class="form-select">
-                                    <option v-for="(agent, agentEndpoint) in $root.agentList" :key="agentEndpoint" :value="agentEndpoint" :disabled="$root.agentStatusList[agentEndpoint] != 'online'">
-                                        ({{ $root.agentStatusList[agentEndpoint] }}) {{ (agent.name !== '') ? agent.name : agent.url || $t("Current") }}
-                                    </option>
-                                </select>
-                            </div>
+            <div
+                v-if="stack.isManagedByDockge"
+                ref="composeWorkspace"
+                class="compose-workspace"
+                :class="{
+                    'compose-focus-mode': composeFocusMode,
+                    'compose-details-stacked': shouldStackDetailsPane,
+                    'compose-terminal-expanded': showCombinedTerminalPanel && !combinedTerminalCollapsed,
+                    'compose-terminal-collapsed': showCombinedTerminalPanel && combinedTerminalCollapsed,
+                }"
+            >
+                <div class="compose-workbench">
+                    <section ref="composeEditorPane" class="compose-editor-pane">
+                        <div class="compose-editor-header">
+                            <h4 class="mb-0">{{ stack.composeFileName }}</h4>
+                            <button class="btn btn-normal btn-sm" type="button" @click="toggleComposeFocusMode">
+                                <font-awesome-icon :icon="composeFocusMode ? 'compress' : 'expand'" class="me-1" />
+                                {{ composeFocusMode ? $t("exitFocusMode") : $t("focusEditor") }}
+                            </button>
                         </div>
-                    </div>
 
-                    <!-- Containers -->
-                    <h4 class="mb-3">{{ $tc("container", 2) }}</h4>
-
-                    <div v-if="isEditMode" class="input-group mb-3">
-                        <input
-                            v-model="newContainerName"
-                            :placeholder="$t(`New Container Name...`)"
-                            class="form-control"
-                            @keyup.enter="addContainer"
-                        />
-                        <button class="btn btn-primary" @click="addContainer">
-                            {{ $t("addContainer") }}
-                        </button>
-                    </div>
-
-                    <div ref="containerList">
-                        <Container
-                            v-for="(service, name) in jsonConfig.services"
-                            :key="name"
-                            :name="name"
-                            :is-edit-mode="isEditMode"
-                            :first="name === Object.keys(jsonConfig.services)[0]"
-                            :serviceStatus="serviceStatusList[name]"
-                            :dockerStats="dockerStats"
-                            @start-service="startService"
-                            @stop-service="stopService"
-                            @restart-service="restartService"
-                        />
-                    </div>
-
-                    <button v-if="false && isEditMode && jsonConfig.services && Object.keys(jsonConfig.services).length > 0" class="btn btn-normal mb-3" @click="addContainer">{{ $t("addContainer") }}</button>
-
-                    <!-- General -->
-                    <div v-if="isEditMode">
-                        <h4 class="mb-3">{{ $t("extra") }}</h4>
-                        <div class="shadow-box big-padding mb-3">
-                            <!-- URLs -->
-                            <div class="mb-4">
-                                <label class="form-label">
-                                    {{ $tc("url", 2) }}
-                                </label>
-                                <ArrayInput name="urls" :display-name="$t('url')" placeholder="https://" object-type="x-dockge" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Combined Terminal Output -->
-                    <div v-show="!isEditMode">
-                        <h4 class="mb-3">{{ $t("terminal") }}</h4>
-                        <Terminal
-                            ref="combinedTerminal"
-                            class="mb-3 terminal"
-                            :name="combinedTerminalName"
-                            :endpoint="endpoint"
-                            :rows="combinedTerminalRows"
-                            :cols="combinedTerminalCols"
-                            style="height: 315px;"
-                        ></Terminal>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <h4 class="mb-3">{{ stack.composeFileName }}</h4>
-
-                    <!-- YAML editor -->
-                    <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
-                        <code-mirror
-                            ref="editor"
-                            v-model="stack.composeYAML"
-                            :extensions="extensions"
-                            minimal
-                            wrap="true"
-                            dark="true"
-                            tab="true"
-                            :disabled="!isEditMode"
-                            :hasFocus="editorFocus"
-                            @change="yamlCodeChange"
-                        />
-                    </div>
-                    <div v-if="isEditMode" class="mb-3">
-                        {{ yamlError }}
-                    </div>
-
-                    <!-- ENV editor -->
-                    <div v-if="isEditMode">
-                        <h4 class="mb-3">.env</h4>
-                        <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
+                        <div class="shadow-box mb-3 editor-box compose-yaml-editor" :class="{ 'edit-mode' : isEditMode }">
                             <code-mirror
                                 ref="editor"
-                                v-model="stack.composeENV"
-                                :extensions="extensionsEnv"
+                                v-model="stack.composeYAML"
+                                :extensions="extensions"
                                 minimal
                                 wrap="true"
                                 dark="true"
@@ -205,32 +116,153 @@
                                 @change="yamlCodeChange"
                             />
                         </div>
-                    </div>
 
-                    <div v-if="isEditMode">
-                        <!-- Volumes -->
-                        <div v-if="false">
-                            <h4 class="mb-3">{{ $tc("volume", 2) }}</h4>
+                        <div v-if="isEditMode && yamlError" class="alert alert-danger py-2 mb-3" role="alert">
+                            {{ yamlError }}
+                        </div>
+                    </section>
+
+                    <button
+                        v-if="!composeFocusMode && !shouldStackDetailsPane"
+                        class="pane-resizer details-resizer"
+                        type="button"
+                        tabindex="0"
+                        role="separator"
+                        aria-orientation="vertical"
+                        :aria-label="$t('resizeDetailsPane')"
+                        aria-controls="compose-details-pane"
+                        :aria-valuemin="detailsPaneConfig.minWidth"
+                        :aria-valuemax="detailsPaneConfig.maxWidth"
+                        :aria-valuenow="detailsPaneWidth"
+                        @pointerdown="startDetailsResize"
+                        @keydown="handleDetailsResizeKeydown"
+                    ></button>
+
+                    <aside
+                        v-show="!composeFocusMode"
+                        id="compose-details-pane"
+                        class="compose-details-pane"
+                        :style="{ width: `${detailsPaneWidth}px` }"
+                    >
+                        <div v-if="isAdd" class="compose-details-section">
+                            <h4 class="mb-3">{{ $t("general") }}</h4>
                             <div class="shadow-box big-padding mb-3">
+                                <div>
+                                    <label for="name" class="form-label">{{ $t("stackName") }}</label>
+                                    <input id="name" v-model="stack.name" type="text" class="form-control" required @blur="stackNameToLowercase">
+                                    <div class="form-text">{{ $t("Lowercase only") }}</div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <label for="name" class="form-label">{{ $t("dockgeAgent") }}</label>
+                                    <select v-model="stack.endpoint" class="form-select">
+                                        <option v-for="(agent, agentEndpoint) in $root.agentList" :key="agentEndpoint" :value="agentEndpoint" :disabled="$root.agentStatusList[agentEndpoint] != 'online'">
+                                            ({{ $root.agentStatusList[agentEndpoint] }}) {{ (agent.name !== '') ? agent.name : agent.url || $t("Current") }}
+                                        </option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Networks -->
-                        <h4 class="mb-3">{{ $tc("network", 2) }}</h4>
-                        <div class="shadow-box big-padding mb-3">
-                            <NetworkInput />
-                        </div>
-                    </div>
+                        <div class="compose-details-section">
+                            <h4 class="mb-3">{{ $tc("container", 2) }}</h4>
 
-                    <!-- <div class="shadow-box big-padding mb-3">
-                        <div class="mb-3">
-                            <label for="name" class="form-label"> Search Templates</label>
-                            <input id="name" v-model="name" type="text" class="form-control" placeholder="Search..." required>
+                            <div v-if="isEditMode" class="input-group mb-3">
+                                <input
+                                    v-model="newContainerName"
+                                    :placeholder="$t(`New Container Name...`)"
+                                    class="form-control"
+                                    @keyup.enter="addContainer"
+                                />
+                                <button class="btn btn-primary" @click="addContainer">
+                                    {{ $t("addContainer") }}
+                                </button>
+                            </div>
+
+                            <div ref="containerList">
+                                <Container
+                                    v-for="(service, name) in jsonConfig.services"
+                                    :key="name"
+                                    :name="name"
+                                    :is-edit-mode="isEditMode"
+                                    :first="name === Object.keys(jsonConfig.services)[0]"
+                                    :serviceStatus="serviceStatusList[name]"
+                                    :dockerStats="dockerStats"
+                                    @start-service="startService"
+                                    @stop-service="stopService"
+                                    @restart-service="restartService"
+                                />
+                            </div>
                         </div>
 
-                        <prism-editor v-if="false" v-model="yamlConfig" class="yaml-editor" :highlight="highlighter" line-numbers @input="yamlCodeChange"></prism-editor>
-                    </div>-->
+                        <div v-if="isEditMode" class="compose-details-section">
+                            <h4 class="mb-3">{{ $t("extra") }}</h4>
+                            <div class="shadow-box big-padding mb-3">
+                                <div class="mb-4">
+                                    <label class="form-label">
+                                        {{ $tc("url", 2) }}
+                                    </label>
+                                    <ArrayInput name="urls" :display-name="$t('url')" placeholder="https://" object-type="x-dockge" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="isEditMode" class="compose-details-section">
+                            <h4 class="mb-3">.env</h4>
+                            <div class="shadow-box mb-3 editor-box compose-env-editor" :class="{ 'edit-mode' : isEditMode }">
+                                <code-mirror
+                                    ref="envEditor"
+                                    v-model="stack.composeENV"
+                                    :extensions="extensionsEnv"
+                                    minimal
+                                    wrap="true"
+                                    dark="true"
+                                    tab="true"
+                                    :disabled="!isEditMode"
+                                    :hasFocus="editorFocus"
+                                    @change="yamlCodeChange"
+                                />
+                            </div>
+                        </div>
+
+                        <div v-if="isEditMode" class="compose-details-section">
+                            <h4 class="mb-3">{{ $tc("network", 2) }}</h4>
+                            <div class="shadow-box big-padding mb-3">
+                                <NetworkInput />
+                            </div>
+                        </div>
+                    </aside>
                 </div>
+
+                <section
+                    v-show="showCombinedTerminalPanel"
+                    class="compose-terminal-panel"
+                    :class="{ 'is-collapsed': combinedTerminalCollapsed }"
+                    :style="combinedTerminalPanelStyle"
+                >
+                    <div class="compose-terminal-header">
+                        <h4 class="mb-0">{{ $t("terminal") }}</h4>
+                        <button
+                            class="btn btn-normal btn-sm"
+                            type="button"
+                            :aria-expanded="!combinedTerminalCollapsed"
+                            :aria-label="combinedTerminalCollapsed ? 'Show terminal' : 'Hide terminal'"
+                            @click="toggleCombinedTerminalPanel"
+                        >
+                            <font-awesome-icon :icon="combinedTerminalCollapsed ? 'chevron-up' : 'chevron-down'" />
+                        </button>
+                    </div>
+                    <div v-show="!combinedTerminalCollapsed" class="compose-terminal-body">
+                        <Terminal
+                            ref="combinedTerminal"
+                            class="terminal compose-bottom-terminal"
+                            :name="combinedTerminalName"
+                            :endpoint="endpoint"
+                            :rows="combinedTerminalRows"
+                            :cols="combinedTerminalCols"
+                        ></Terminal>
+                    </div>
+                </section>
             </div>
 
             <div v-if="!stack.isManagedByDockge && !processing">
@@ -263,10 +295,16 @@ import {
     PROGRESS_TERMINAL_ROWS,
     RUNNING
 } from "../../../common/util-common";
-import { BModal } from "bootstrap-vue-next";
+import { BDropdown, BDropdownItem, BModal } from "bootstrap-vue-next";
 import NetworkInput from "../components/NetworkInput.vue";
 import dotenv from "dotenv";
 import { ref } from "vue";
+import {
+    DETAILS_PANE_CONFIG,
+    readPaneWidth,
+    shouldCollapseSecondaryPanes,
+    writePaneWidth,
+} from "../util-split-pane";
 
 const template = `
 services:
@@ -282,12 +320,15 @@ let yamlErrorTimeout = null;
 
 let serviceStatusTimeout = null;
 let dockerStatsTimeout = null;
+const COMBINED_TERMINAL_COLLAPSED_STORAGE_KEY = "dockgeCombinedTerminalCollapsed";
 
 export default {
     components: {
         NetworkInput,
         FontAwesomeIcon,
         CodeMirror,
+        BDropdown,
+        BDropdownItem,
         BModal,
     },
     beforeRouteUpdate(to, from, next) {
@@ -296,6 +337,10 @@ export default {
     beforeRouteLeave(to, from, next) {
         this.exitConfirm(next);
     },
+    emits: [
+        "compose-focus-change",
+        "compose-details-width-change",
+    ],
     setup() {
         const editorFocus = ref(false);
 
@@ -323,6 +368,9 @@ export default {
             editorFocus };
     },
     yamlDoc: null,  // For keeping the yaml comments
+    combinedTerminalPanelBoundsFrame: null,
+    combinedTerminalPanelResizeObserver: null,
+    combinedTerminalPanelResizeAnchor: null,
     data() {
         return {
             jsonConfig: {},
@@ -333,6 +381,8 @@ export default {
             progressTerminalRows: PROGRESS_TERMINAL_ROWS,
             combinedTerminalRows: COMBINED_TERMINAL_ROWS,
             combinedTerminalCols: COMBINED_TERMINAL_COLS,
+            combinedTerminalCollapsed: window.localStorage.getItem(COMBINED_TERMINAL_COLLAPSED_STORAGE_KEY) === "true",
+            combinedTerminalPanelStyle: {},
             stack: {
 
             },
@@ -344,9 +394,22 @@ export default {
             newContainerName: "",
             stopServiceStatusTimeout: false,
             stopDockerStatsTimeout: false,
+            detailsPaneConfig: DETAILS_PANE_CONFIG,
+            detailsPaneWidth: DETAILS_PANE_CONFIG.defaultWidth,
+            isResizingDetailsPane: false,
+            composeFocusMode: false,
+            windowWidth: window.innerWidth,
         };
     },
     computed: {
+        shouldStackDetailsPane() {
+            return !this.composeFocusMode && shouldCollapseSecondaryPanes(this.windowWidth, 0, this.detailsPaneWidth);
+        },
+
+        showCombinedTerminalPanel() {
+            return !this.isEditMode && !this.composeFocusMode;
+        },
+
         endpointDisplay() {
             return this.$root.endpointDisplayFunction(this.endpoint);
         },
@@ -473,6 +536,9 @@ export default {
         }
     },
     mounted() {
+        this.detailsPaneWidth = readPaneWidth(window.localStorage, DETAILS_PANE_CONFIG);
+        this.$emit("compose-details-width-change", this.detailsPaneWidth);
+
         if (this.isAdd) {
             this.processing = false;
             this.isEditMode = true;
@@ -511,11 +577,145 @@ export default {
 
         this.requestServiceStatus();
         this.requestDockerStats();
+        this.scheduleCombinedTerminalPanelBoundsUpdate();
+        window.addEventListener("resize", this.updateWindowWidth);
+        window.addEventListener("keydown", this.handleGlobalTerminalShortcut);
+    },
+    updated() {
+        this.scheduleCombinedTerminalPanelBoundsUpdate();
     },
     unmounted() {
-
+        this.stopDetailsResize();
+        this.$emit("compose-focus-change", false);
+        if (this.combinedTerminalPanelBoundsFrame !== null) {
+            cancelAnimationFrame(this.combinedTerminalPanelBoundsFrame);
+            this.combinedTerminalPanelBoundsFrame = null;
+        }
+        this.combinedTerminalPanelResizeObserver?.disconnect();
+        this.combinedTerminalPanelResizeObserver = null;
+        this.combinedTerminalPanelResizeAnchor = null;
+        window.removeEventListener("resize", this.updateWindowWidth);
+        window.removeEventListener("keydown", this.handleGlobalTerminalShortcut);
     },
     methods: {
+        updateWindowWidth() {
+            this.windowWidth = window.innerWidth;
+            this.scheduleCombinedTerminalPanelBoundsUpdate();
+        },
+
+        scheduleCombinedTerminalPanelBoundsUpdate() {
+            this.$nextTick(() => {
+                if (this.combinedTerminalPanelBoundsFrame !== null) {
+                    cancelAnimationFrame(this.combinedTerminalPanelBoundsFrame);
+                }
+
+                this.combinedTerminalPanelBoundsFrame = requestAnimationFrame(() => {
+                    this.combinedTerminalPanelBoundsFrame = null;
+                    this.observeCombinedTerminalPanelAnchor();
+                    this.updateCombinedTerminalPanelBounds();
+                });
+            });
+        },
+
+        observeCombinedTerminalPanelAnchor() {
+            const anchor = this.$refs.composeEditorPane || this.$refs.composeWorkspace;
+
+            if (!anchor || typeof ResizeObserver === "undefined") {
+                return;
+            }
+
+            if (!this.combinedTerminalPanelResizeObserver) {
+                this.combinedTerminalPanelResizeObserver = new ResizeObserver(() => {
+                    this.scheduleCombinedTerminalPanelBoundsUpdate();
+                });
+            }
+
+            if (this.combinedTerminalPanelResizeAnchor === anchor) {
+                return;
+            }
+
+            this.combinedTerminalPanelResizeObserver.disconnect();
+            this.combinedTerminalPanelResizeAnchor = anchor;
+            this.combinedTerminalPanelResizeObserver.observe(anchor);
+        },
+
+        updateCombinedTerminalPanelBounds() {
+            const workspace = this.$refs.composeWorkspace;
+            const anchor = this.$refs.composeEditorPane || workspace;
+
+            if (!anchor) {
+                return;
+            }
+
+            const { left, width } = anchor.getBoundingClientRect();
+            const nextStyle = {
+                left: `${Math.max(left, 0)}px`,
+                width: `${Math.max(width, 0)}px`,
+            };
+
+            if (this.combinedTerminalPanelStyle.left !== nextStyle.left || this.combinedTerminalPanelStyle.width !== nextStyle.width) {
+                this.combinedTerminalPanelStyle = nextStyle;
+                this.$nextTick(() => {
+                    this.$refs.combinedTerminal?.updateTerminalSize?.();
+                });
+            }
+        },
+
+        toggleComposeFocusMode() {
+            this.composeFocusMode = !this.composeFocusMode;
+            this.$emit("compose-focus-change", this.composeFocusMode);
+            this.scheduleCombinedTerminalPanelBoundsUpdate();
+        },
+
+        startDetailsResize(event) {
+            if (this.composeFocusMode || this.shouldStackDetailsPane) {
+                return;
+            }
+
+            this.isResizingDetailsPane = true;
+            document.body.classList.add("resizing-pane");
+            document.addEventListener("pointermove", this.handleDetailsResize);
+            document.addEventListener("pointerup", this.stopDetailsResize);
+            document.addEventListener("pointercancel", this.stopDetailsResize);
+            event.preventDefault();
+        },
+
+        handleDetailsResize(event) {
+            if (!this.isResizingDetailsPane) {
+                return;
+            }
+
+            const pageRight = this.$el.getBoundingClientRect().right;
+            this.setDetailsPaneWidth(pageRight - event.clientX);
+        },
+
+        stopDetailsResize() {
+            if (!this.isResizingDetailsPane) {
+                return;
+            }
+
+            this.isResizingDetailsPane = false;
+            document.body.classList.remove("resizing-pane");
+            document.removeEventListener("pointermove", this.handleDetailsResize);
+            document.removeEventListener("pointerup", this.stopDetailsResize);
+            document.removeEventListener("pointercancel", this.stopDetailsResize);
+        },
+
+        setDetailsPaneWidth(width) {
+            this.detailsPaneWidth = writePaneWidth(window.localStorage, DETAILS_PANE_CONFIG, width);
+            this.$emit("compose-details-width-change", this.detailsPaneWidth);
+        },
+
+        handleDetailsResizeKeydown(event) {
+            if (event.key === "ArrowLeft") {
+                this.setDetailsPaneWidth(this.detailsPaneWidth + 16);
+                event.preventDefault();
+            } else if (event.key === "ArrowRight") {
+                this.setDetailsPaneWidth(this.detailsPaneWidth - 16);
+                event.preventDefault();
+            }
+        },
+
         startServiceStatusTimeout() {
             clearTimeout(serviceStatusTimeout);
             serviceStatusTimeout = setTimeout(async () => {
@@ -587,6 +787,32 @@ export default {
             this.$refs.progressTerminal?.bind(this.endpoint, this.terminalName);
         },
 
+        toggleCombinedTerminalPanel() {
+            this.combinedTerminalCollapsed = !this.combinedTerminalCollapsed;
+            window.localStorage.setItem(COMBINED_TERMINAL_COLLAPSED_STORAGE_KEY, String(this.combinedTerminalCollapsed));
+
+            if (!this.combinedTerminalCollapsed) {
+                this.$nextTick(() => {
+                    this.$refs.combinedTerminal?.updateTerminalSize?.();
+                });
+            }
+        },
+
+        handleGlobalTerminalShortcut(event) {
+            const isTerminalShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "j";
+
+            if (!isTerminalShortcut) {
+                return;
+            }
+
+            if (!this.showCombinedTerminalPanel) {
+                return;
+            }
+
+            event.preventDefault();
+            this.toggleCombinedTerminalPanel();
+        },
+
         loadStack() {
             this.processing = true;
             this.$root.emitAgent(this.endpoint, "getStack", this.stack.name, (res) => {
@@ -595,6 +821,7 @@ export default {
                     this.yamlCodeChange();
                     this.processing = false;
                     this.bindTerminal();
+                    this.scheduleCombinedTerminalPanelBoundsUpdate();
                 } else {
                     this.$root.toastRes(res);
                 }
@@ -856,6 +1083,208 @@ export default {
 .editor-box {
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
+}
+
+.compose-workspace {
+    min-width: 0;
+}
+
+.compose-workspace.compose-terminal-expanded {
+    padding-bottom: calc(clamp(320px, 34vh, 460px) + 74px);
+}
+
+.compose-workspace.compose-terminal-collapsed {
+    padding-bottom: 74px;
+}
+
+.compose-workbench {
+    align-items: stretch;
+    display: flex;
+    min-width: 0;
+}
+
+.compose-editor-pane {
+    flex: 1 1 auto;
+    min-width: 480px;
+    padding-right: 12px;
+}
+
+.compose-editor-header {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    min-width: 0;
+}
+
+.compose-details-pane {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding-left: 12px;
+}
+
+.compose-details-section {
+    min-width: 0;
+}
+
+.compose-terminal-panel {
+    background: $dark-bg;
+    border-radius: 18px 18px 0 0;
+    bottom: 0;
+    box-shadow: 0 -16px 32px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    margin-top: 8px;
+    min-width: 0;
+    padding: 12px 12px 0;
+    position: fixed;
+    z-index: 20;
+}
+
+.compose-terminal-panel.is-collapsed {
+    padding-bottom: 12px;
+}
+
+.compose-terminal-header {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    min-width: 0;
+}
+
+.compose-terminal-header .btn {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-height: 40px;
+    min-width: 40px;
+    padding: 0;
+}
+
+.compose-terminal-body {
+    min-width: 0;
+    width: 100%;
+}
+
+.compose-bottom-terminal {
+    box-sizing: border-box;
+    display: block;
+    height: clamp(320px, 34vh, 460px);
+    margin-bottom: 0;
+    width: 100%;
+}
+
+.compose-bottom-terminal :deep(.main-terminal),
+.compose-bottom-terminal :deep(.xterm) {
+    width: 100%;
+}
+
+.compose-yaml-editor,
+.compose-env-editor {
+    min-width: 0;
+}
+
+.compose-yaml-editor :deep(.cm-editor) {
+    min-height: calc(100vh - 320px);
+}
+
+.compose-env-editor :deep(.cm-editor) {
+    min-height: 180px;
+}
+
+.compose-focus-mode {
+    .details-resizer,
+    .compose-details-pane {
+        display: none !important;
+    }
+
+    .compose-editor-pane {
+        min-width: 0;
+        padding-right: 0;
+    }
+
+    .compose-yaml-editor :deep(.cm-editor) {
+        min-height: calc(100vh - 260px);
+    }
+}
+
+.compose-details-stacked {
+    .compose-workbench {
+        display: block;
+    }
+
+    .compose-editor-pane {
+        min-width: 0;
+        padding-right: 0;
+    }
+
+    .compose-details-pane {
+        padding-left: 0;
+        width: auto !important;
+    }
+
+    .pane-resizer {
+        display: none;
+    }
+
+    .compose-yaml-editor :deep(.cm-editor) {
+        min-height: 55vh;
+    }
+}
+
+.pane-resizer {
+    flex: 0 0 10px;
+    border: 0;
+    background: transparent;
+    cursor: col-resize;
+    min-height: calc(100vh - 240px);
+    padding: 0;
+    position: relative;
+}
+
+.pane-resizer::before {
+    background: rgba(120, 130, 140, 0.35);
+    border-radius: 999px;
+    content: "";
+    inset: 0 4px;
+    opacity: 0;
+    position: absolute;
+    transition: opacity 0.15s ease;
+}
+
+.pane-resizer:hover::before,
+.pane-resizer:focus-visible::before {
+    opacity: 1;
+}
+
+.pane-resizer:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+}
+
+@media (max-width: 991.98px) {
+    .compose-workbench {
+        display: block;
+    }
+
+    .compose-editor-pane {
+        min-width: 0;
+        padding-right: 0;
+    }
+
+    .compose-details-pane {
+        padding-left: 0;
+        width: auto !important;
+    }
+
+    .pane-resizer {
+        display: none;
+    }
+
+    .compose-yaml-editor :deep(.cm-editor) {
+        min-height: 55vh;
+    }
 }
 
 .agent-name {

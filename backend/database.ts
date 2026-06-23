@@ -12,12 +12,7 @@ import sqlite from "@louislam/sqlite3";
 import { sleep } from "../common/util-common";
 
 interface DBConfig {
-    type?: "sqlite" | "mysql";
-    hostname?: string;
-    port?: string;
-    database?: string;
-    username?: string;
-    password?: string;
+    type?: "sqlite";
 }
 
 export class Database {
@@ -55,7 +50,7 @@ export class Database {
      * Read the database config
      * @throws {Error} If the config is invalid
      * @typedef {string|undefined} envString
-     * @returns {{type: "sqlite"} | {type:envString, hostname:envString, port:envString, database:envString, username:envString, password:envString}} Database config
+     * @returns Database config
      */
     static readDBConfig() : DBConfig {
         const dbConfigString = fs.readFileSync(path.join(this.server.config.dataDir, "db-config.json")).toString("utf-8");

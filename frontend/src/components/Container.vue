@@ -9,7 +9,7 @@
                 <div v-if="!isEditMode" class="container-badges">
                     <span class="badge" :class="bgStyle">{{ status }}</span>
 
-                    <a v-for="port in (ports ?? envsubstService.ports)" :key="port" :href="parsePort(port).url" target="_blank">
+                    <a v-for="port in (ports ?? envsubstService.ports)" :key="port" :href="parsePort(port).url" target="_blank" rel="noopener noreferrer">
                         <span class="badge bg-secondary">{{ parsePort(port).display }}</span>
                     </a>
                 </div>
@@ -72,7 +72,13 @@
                     </div>
                 </template>
                 <div class="d-flex flex-grow-1 justify-content-end">
-                    <button class="btn btn-sm btn-normal" @click="expandedStats = !expandedStats">
+                    <button
+                        class="btn btn-sm btn-normal"
+                        type="button"
+                        aria-label="Statistiken ein-/ausklappen"
+                        :aria-expanded="expandedStats"
+                        @click="expandedStats = !expandedStats"
+                    >
                         <font-awesome-icon :icon="expandedStats ? 'chevron-up' : 'chevron-down'" />
                     </button>
                 </div>
@@ -92,14 +98,17 @@
             <div v-if="isEditMode && showConfig" class="config mt-3">
                 <!-- Image -->
                 <div class="mb-4">
-                    <label class="form-label">
+                    <label :for="dockerImageInputId" class="form-label">
                         {{ $t("dockerImage") }}
                     </label>
                     <div class="input-group mb-3">
                         <input
+                            :id="dockerImageInputId"
                             v-model="service.image"
+                            name="docker-image"
                             class="form-control"
                             list="image-datalist"
+                            autocomplete="off"
                         />
                     </div>
 
@@ -128,10 +137,10 @@
 
                 <!-- Restart Policy -->
                 <div class="mb-4">
-                    <label class="form-label">
+                    <label :for="restartPolicyInputId" class="form-label">
                         {{ $t("restartPolicy") }}
                     </label>
-                    <select v-model="service.restart" class="form-select">
+                    <select :id="restartPolicyInputId" v-model="service.restart" name="restart-policy" class="form-select">
                         <option value="always">{{ $t("restartPolicyAlways") }}</option>
                         <option value="unless-stopped">{{ $t("restartPolicyUnlessStopped") }}</option>
                         <option value="on-failure">{{ $t("restartPolicyOnFailure") }}</option>
@@ -224,6 +233,18 @@ export default defineComponent({
                 list.push(networkName);
             }
             return list;
+        },
+
+        fieldIdPrefix() {
+            return `container-${this.name.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+        },
+
+        dockerImageInputId() {
+            return `${this.fieldIdPrefix}-docker-image`;
+        },
+
+        restartPolicyInputId() {
+            return `${this.fieldIdPrefix}-restart-policy`;
         },
 
         bgStyle() {

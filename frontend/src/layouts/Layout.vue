@@ -1,10 +1,10 @@
 <template>
     <div :class="classes">
-        <div v-if="! $root.socketIO.connected && ! $root.socketIO.firstConnect" class="lost-connection">
+        <div v-if="! $root.socketIO.connected && ! $root.socketIO.firstConnect" class="lost-connection" aria-live="polite">
             <div class="container-fluid">
                 {{ $root.socketIO.connectionErrorMsg }}
                 <div v-if="$root.socketIO.showReverseProxyGuide">
-                    {{ $t("reverseProxyMsg1") }} <a href="https://github.com/louislam/uptime-kuma/wiki/Reverse-Proxy" target="_blank">{{ $t("reverseProxyMsg2") }}</a>
+                    {{ $t("reverseProxyMsg1") }} <a href="https://github.com/louislam/uptime-kuma/wiki/Reverse-Proxy" target="_blank" rel="noopener noreferrer">{{ $t("reverseProxyMsg2") }}</a>
                 </div>
             </div>
         </div>
@@ -12,11 +12,11 @@
         <!-- Desktop header -->
         <header v-if="! $root.isMobile" class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
             <router-link to="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none">
-                <object class="bi me-2 ms-4" width="40" height="40" data="/icon.svg" />
+                <object class="bi me-2 ms-4" width="40" height="40" data="/icon.svg" aria-hidden="true" tabindex="-1" />
                 <span class="fs-4 title">Dockge</span>
             </router-link>
 
-            <a v-if="hasNewVersion" target="_blank" href="https://github.com/louislam/dockge/releases" class="btn btn-warning me-3">
+            <a v-if="hasNewVersion" target="_blank" rel="noopener noreferrer" href="https://github.com/louislam/dockge/releases" class="btn btn-warning me-3">
                 <font-awesome-icon icon="arrow-alt-circle-up" /> {{ $t("newUpdate") }}
             </a>
 
@@ -35,10 +35,10 @@
 
                 <li v-if="$root.loggedIn" class="nav-item">
                     <div class="dropdown dropdown-profile-pic">
-                        <div class="nav-link" data-bs-toggle="dropdown">
+                        <button class="nav-link" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <div class="profile-pic">{{ $root.usernameFirstChar }}</div>
                             <font-awesome-icon icon="angle-down" />
-                        </div>
+                        </button>
 
                         <!-- Header's Dropdown Menu -->
                         <ul class="dropdown-menu">
@@ -80,7 +80,7 @@
 
         <main>
             <div v-if="$root.socketIO.connecting" class="container mt-5">
-                <h4>{{ $t("connecting...") }}</h4>
+                <h4>{{ $t("connecting…") }}</h4>
             </div>
 
             <router-view v-if="$root.loggedIn" />
@@ -219,6 +219,7 @@ main {
     user-select: none;
 
     .nav-link {
+        border: 0;
         cursor: pointer;
         display: flex;
         gap: 6px;
@@ -232,7 +233,7 @@ main {
     }
 
     .dropdown-menu {
-        transition: all 0.2s;
+        transition: background-color 0.2s, border-color 0.2s;
         padding-left: 0;
         padding-bottom: 0;
         margin-top: 8px !important;

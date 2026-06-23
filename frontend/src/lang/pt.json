@@ -111,6 +111,9 @@
     "url": "URL | URL's",
     "extra": "Extra",
     "reconnecting...": "Reconectando…",
+    "reconnecting…": "Reconectando…",
+    "Reconnecting…": "Reconectando…",
     "connecting...": "Conectando ao servidor de socket…",
+    "connecting…": "Conectando ao servidor de socket…",
     "LongSyntaxNotSupported": "Sintaxes longas não são suportadas aqui. Por favor, utilize um editor YAML."
 }

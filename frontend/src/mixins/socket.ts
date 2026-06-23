@@ -18,7 +18,7 @@ export default defineComponent({
                 connected: false,
                 connectCount: 0,
                 initedSocketIO: false,
-                connectionErrorMsg: `${this.$t("Cannot connect to the socket server.")} ${this.$t("Reconnecting...")}`,
+                connectionErrorMsg: `${this.$t("Cannot connect to the socket server.")} ${this.$t("Reconnecting…")}`,
                 showReverseProxyGuide: true,
                 connecting: false,
             },
@@ -208,13 +208,13 @@ export default defineComponent({
 
             socket.on("disconnect", () => {
                 console.log("disconnect");
-                this.socketIO.connectionErrorMsg = `${this.$t("Lost connection to the socket server. Reconnecting...")}`;
+                this.socketIO.connectionErrorMsg = `${this.$t("Lost connection to the socket server. Reconnecting…")}`;
                 this.socketIO.connected = false;
             });
 
             socket.on("connect_error", (err) => {
                 console.error(`Failed to connect to the backend. Socket.io connect_error: ${err.message}`);
-                this.socketIO.connectionErrorMsg = `${this.$t("Cannot connect to the socket server.")} [${err}] ${this.$t("reconnecting...")}`;
+                this.socketIO.connectionErrorMsg = `${this.$t("Cannot connect to the socket server.")} [${err}] ${this.$t("reconnecting…")}`;
                 this.socketIO.showReverseProxyGuide = true;
                 this.socketIO.connected = false;
                 this.socketIO.firstConnect = false;

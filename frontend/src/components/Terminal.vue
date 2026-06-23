@@ -99,7 +99,6 @@ export default {
 
         // Bind to a div
         this.terminal.open(this.$refs.terminal);
-        this.terminal.focus();
 
         // Add right-click context menu handler for paste
         this.$refs.terminal.addEventListener("contextmenu", this.handleContextMenu);

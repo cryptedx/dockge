@@ -14,19 +14,21 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <div v-if="uri && twoFAStatus == false" class="mx-auto text-center" style="width: 210px;">
-                                <vue-qrcode :key="uri" :value="uri" type="image/png" :quality="1" :color="{ light: '#ffffffff' }" />
+                                <vue-qrcode :key="uri" :value="uri" type="image/png" :quality="1" :color="{ light: '#ffffffff' }" aria-describedby="twofa-uri" />
+                                <p id="twofa-uri" class="visually-hidden">{{ uri }}</p>
                                 <button v-show="!showURI" type="button" class="btn btn-outline-primary btn-sm mt-2" @click="showURI = true">{{ $t("Show URI") }}</button>
                             </div>
                             <p v-if="showURI && twoFAStatus == false" class="text-break mt-2">{{ uri }}</p>
 
                             <div v-if="!(uri && twoFAStatus == false)" class="mb-3">
-                                <label for="current-password" class="form-label">
+                                <label for="twofa-current-password" class="form-label">
                                     {{ $t("Current Password") }}
                                 </label>
                                 <input
-                                    id="current-password"
+                                    id="twofa-current-password"
                                     v-model="currentPassword"
                                     type="password"
+                                    name="current-password"
                                     class="form-control"
                                     autocomplete="current-password"
                                     required
@@ -42,12 +44,22 @@
                             </button>
 
                             <div v-if="uri && twoFAStatus == false" class="mt-3">
-                                <label for="basic-url" class="form-label">{{ $t("twoFAVerifyLabel") }}</label>
+                                <label for="twofa-token" class="form-label">{{ $t("twoFAVerifyLabel") }}</label>
                                 <div class="input-group">
-                                    <input v-model="token" type="text" maxlength="6" class="form-control" autocomplete="one-time-code" required>
+                                    <input
+                                        id="twofa-token"
+                                        v-model="token"
+                                        type="text"
+                                        name="twofa-token"
+                                        maxlength="6"
+                                        inputmode="numeric"
+                                        class="form-control"
+                                        autocomplete="one-time-code"
+                                        required
+                                    >
                                     <button class="btn btn-outline-primary" type="button" @click="verifyToken()">{{ $t("Verify Token") }}</button>
                                 </div>
-                                <p v-show="tokenValid" class="mt-2" style="color: green;">{{ $t("tokenValidSettingsMsg") }}</p>
+                                <p v-show="tokenValid" class="mt-2" style="color: green;" aria-live="polite">{{ $t("tokenValidSettingsMsg") }}</p>
                             </div>
                         </div>
                     </div>

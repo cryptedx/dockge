@@ -63,7 +63,7 @@
 
             <!-- URLs -->
             <div v-if="urls.length > 0" class="mb-3">
-                <a v-for="(urlItem, index) in urls" :key="index" target="_blank" :href="urlItem.url">
+                <a v-for="(urlItem, index) in urls" :key="index" target="_blank" rel="noopener noreferrer" :href="urlItem.url">
                     <span class="badge bg-secondary me-2">{{ urlItem.display }}</span>
                 </a>
             </div>
@@ -95,7 +95,7 @@
                 <div class="compose-workbench">
                     <section ref="composeEditorPane" class="compose-editor-pane">
                         <div class="compose-editor-header">
-                            <h4 class="mb-0">{{ stack.composeFileName }}</h4>
+                            <h2 class="mb-0">{{ stack.composeFileName }}</h2>
                             <button class="btn btn-normal btn-sm" type="button" @click="toggleComposeFocusMode">
                                 <font-awesome-icon :icon="composeFocusMode ? 'compress' : 'expand'" class="me-1" />
                                 {{ composeFocusMode ? $t("exitFocusMode") : $t("focusEditor") }}
@@ -148,14 +148,23 @@
                             <h4 class="mb-3">{{ $t("general") }}</h4>
                             <div class="shadow-box big-padding mb-3">
                                 <div>
-                                    <label for="name" class="form-label">{{ $t("stackName") }}</label>
-                                    <input id="name" v-model="stack.name" type="text" class="form-control" required @blur="stackNameToLowercase">
+                                    <label for="stack-name" class="form-label">{{ $t("stackName") }}</label>
+                                    <input
+                                        id="stack-name"
+                                        v-model="stack.name"
+                                        type="text"
+                                        name="stack-name"
+                                        class="form-control"
+                                        autocomplete="off"
+                                        required
+                                        @blur="stackNameToLowercase"
+                                    >
                                     <div class="form-text">{{ $t("Lowercase only") }}</div>
                                 </div>
 
                                 <div class="mt-3">
-                                    <label for="name" class="form-label">{{ $t("dockgeAgent") }}</label>
-                                    <select v-model="stack.endpoint" class="form-select">
+                                    <label for="dockge-agent" class="form-label">{{ $t("dockgeAgent") }}</label>
+                                    <select id="dockge-agent" v-model="stack.endpoint" name="dockge-agent" class="form-select">
                                         <option v-for="(agent, agentEndpoint) in $root.agentList" :key="agentEndpoint" :value="agentEndpoint" :disabled="$root.agentStatusList[agentEndpoint] != 'online'">
                                             ({{ $root.agentStatusList[agentEndpoint] }}) {{ (agent.name !== '') ? agent.name : agent.url || $t("Current") }}
                                         </option>
@@ -168,13 +177,17 @@
                             <h4 class="mb-3">{{ $tc("container", 2) }}</h4>
 
                             <div v-if="isEditMode" class="input-group mb-3">
+                                <label for="new-container-name" class="visually-hidden">{{ $t("addContainer") }}</label>
                                 <input
+                                    id="new-container-name"
                                     v-model="newContainerName"
-                                    :placeholder="$t(`New Container Name...`)"
+                                    name="new-container-name"
+                                    :placeholder="$t(`New Container Name…`)"
                                     class="form-control"
+                                    autocomplete="off"
                                     @keyup.enter="addContainer"
                                 />
-                                <button class="btn btn-primary" @click="addContainer">
+                                <button class="btn btn-primary" type="button" @click="addContainer">
                                     {{ $t("addContainer") }}
                                 </button>
                             </div>

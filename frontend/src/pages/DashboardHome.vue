@@ -29,10 +29,20 @@
                     <!-- Docker Run -->
                     <h2 class="mb-3">{{ $t("Docker Run") }}</h2>
                     <div class="mb-3">
-                        <textarea id="name" v-model="dockerRunCommand" type="text" class="form-control docker-run shadow-box" required placeholder="docker run ..."></textarea>
+                        <label for="docker-run-command" class="visually-hidden">{{ $t("Docker Run") }}</label>
+                        <textarea
+                            id="docker-run-command"
+                            v-model="dockerRunCommand"
+                            name="docker-run-command"
+                            class="form-control docker-run shadow-box"
+                            autocomplete="off"
+                            spellcheck="false"
+                            required
+                            placeholder="docker run …"
+                        ></textarea>
                     </div>
 
-                    <button class="btn-normal btn mb-4" @click="convertDockerRun">{{ $t("Convert to Compose") }}</button>
+                    <button class="btn-normal btn mb-4" type="button" @click="convertDockerRun">{{ $t("Convert to Compose") }}</button>
                 </div>
                 <!-- Right -->
                 <div class="col-md-5">
@@ -56,16 +66,32 @@
                             </template>
 
                             <!-- Edit Name  -->
-                            <font-awesome-icon v-if="agentItem.name !== ''" icon="pen-to-square" @click="showEditAgentNameDialog[agentItem.name] = !showEditAgentNameDialog[agentItem.Name]" />
+                            <button
+                                v-if="agentItem.name !== ''"
+                                class="agent-icon-button"
+                                type="button"
+                                aria-label="Agentnamen bearbeiten"
+                                @click="showEditAgentNameDialog[agentItem.name] = !showEditAgentNameDialog[agentItem.name]"
+                            >
+                                <font-awesome-icon icon="pen-to-square" />
+                            </button>
 
                             <!-- Edit Dialog -->
                             <BModal v-model="showEditAgentNameDialog[agentItem.name]" :no-close-on-backdrop="true" :close-on-esc="true" :okTitle="$t('Update Name')" okVariant="info" @ok="updateName(agentItem.url, agentItem.updatedName)">
-                                <label for="Update Name" class="form-label">Current value: {{ $t(agentItem.name) }}</label>
-                                <input id="updatedName" v-model="agentItem.updatedName" type="text" class="form-control" optional>
+                                <label :for="agentFieldId('updated-agent-name', endpoint)" class="form-label">Current value: {{ $t(agentItem.name) }}</label>
+                                <input :id="agentFieldId('updated-agent-name', endpoint)" v-model="agentItem.updatedName" name="updated-agent-name" type="text" class="form-control" autocomplete="off" optional>
                             </BModal>
 
                             <!-- Remove Button -->
-                            <font-awesome-icon v-if="endpoint !== ''" class="ms-2 remove-agent" icon="trash" @click="showRemoveAgentDialog[agentItem.url] = !showRemoveAgentDialog[agentItem.url]" />
+                            <button
+                                v-if="endpoint !== ''"
+                                class="agent-icon-button ms-2 remove-agent"
+                                type="button"
+                                aria-label="Agent entfernen"
+                                @click="showRemoveAgentDialog[agentItem.url] = !showRemoveAgentDialog[agentItem.url]"
+                            >
+                                <font-awesome-icon icon="trash" />
+                            </button>
 
                             <!-- Remove Agent Dialog -->
                             <BModal v-model="showRemoveAgentDialog[agentItem.url]" :okTitle="$t('removeAgent')" okVariant="danger" @ok="removeAgent(agentItem.url)">
@@ -80,22 +106,22 @@
                         <form v-if="showAgentForm" @submit.prevent="addAgent">
                             <div class="mb-3">
                                 <label for="url" class="form-label">{{ $t("dockgeURL") }}</label>
-                                <input id="url" v-model="agent.url" type="url" class="form-control" required placeholder="http://">
+                                <input id="url" v-model="agent.url" name="agent-url" type="url" class="form-control" autocomplete="url" required placeholder="http://">
                             </div>
 
                             <div class="mb-3">
                                 <label for="username" class="form-label">{{ $t("Username") }}</label>
-                                <input id="username" v-model="agent.username" type="text" class="form-control" required>
+                                <input id="username" v-model="agent.username" name="agent-username" type="text" class="form-control" autocomplete="username" spellcheck="false" required>
                             </div>
 
                             <div class="mb-3">
                                 <label for="password" class="form-label">{{ $t("Password") }}</label>
-                                <input id="password" v-model="agent.password" type="password" class="form-control" required autocomplete="new-password">
+                                <input id="password" v-model="agent.password" name="agent-password" type="password" class="form-control" required autocomplete="new-password">
                             </div>
 
                             <div class="mb-3">
-                                <label for="name" class="form-label">{{ $t("Friendly Name") }}</label>
-                                <input id="name" v-model="agent.name" type="text" class="form-control" optional>
+                                <label for="agent-name-input" class="form-label">{{ $t("Friendly Name") }}</label>
+                                <input id="agent-name-input" v-model="agent.name" name="agent-name" type="text" class="form-control" autocomplete="off" optional>
                             </div>
 
                             <button type="submit" class="btn btn-primary" :disabled="connectingAgent">
@@ -242,6 +268,10 @@ export default {
             });
         },
 
+        agentFieldId(prefix, endpoint) {
+            return `${prefix}-${String(endpoint || "current").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+        },
+
         getStatusNum(statusName) {
             let num = 0;
 
@@ -359,7 +389,7 @@ table {
     font-size: 14px;
 
     tr {
-        transition: all ease-in-out 0.2ms;
+        transition: background-color ease-in-out 0.2s, color ease-in-out 0.2s;
     }
 
     @media (max-width: 550px) {
@@ -381,6 +411,14 @@ table {
 .remove-agent {
     cursor: pointer;
     color: rgba(255, 255, 255, 0.3);
+}
+
+.agent-icon-button {
+    background: transparent;
+    border: 0;
+    color: inherit;
+    line-height: 1;
+    padding: 0;
 }
 
 .agent {

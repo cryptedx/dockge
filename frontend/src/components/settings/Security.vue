@@ -18,6 +18,7 @@
                             id="current-password"
                             v-model="password.currentPassword"
                             type="password"
+                            name="current-password"
                             class="form-control"
                             autocomplete="current-password"
                             required
@@ -32,6 +33,7 @@
                             id="new-password"
                             v-model="password.newPassword"
                             type="password"
+                            name="new-password"
                             class="form-control"
                             autocomplete="new-password"
                             required
@@ -46,6 +48,7 @@
                             id="repeat-new-password"
                             v-model="password.repeatNewPassword"
                             type="password"
+                            name="repeat-new-password"
                             class="form-control"
                             :class="{ 'is-invalid': invalidPassword }"
                             autocomplete="new-password"
@@ -116,7 +119,9 @@
                     id="current-password2"
                     v-model="password.currentPassword"
                     type="password"
+                    name="disable-auth-current-password"
                     class="form-control"
+                    autocomplete="current-password"
                     required
                 />
             </div>

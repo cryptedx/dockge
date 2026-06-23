@@ -95,7 +95,10 @@
     "reverseProxyMsg1": "Ters Proxy mi kullanıyorsunuz?",
     "reverseProxyMsg2": "WebSocket için nasıl yapılandırma yapılacağını kontrol edin",
     "reconnecting...": "Yeniden bağlanıyor…",
+    "reconnecting…": "Yeniden bağlanıyor…",
+    "Reconnecting…": "Yeniden bağlanıyor…",
     "connecting...": "Soket sunucusuna bağlanıyor…",
+    "connecting…": "Soket sunucusuna bağlanıyor…",
     "url": "URL | URL’ler",
     "Cannot connect to the socket server.": "Soket sunucusuna bağlanılamıyor.",
     "downStack": "Durdur ve Devre Dışı Bırak",
@@ -114,6 +117,7 @@
     "removeAgentMsg": "Bu aracıyı kaldırmak istediğinize emin misiniz?",
     "LongSyntaxNotSupported": "Uzun syntax burada desteklenmiyor. Lütfen YAML editörünü kullanın.",
     "Lost connection to the socket server. Reconnecting...": "Soket sunucusuna bağlantı kesildi. Yeniden bağlanılıyor...",
+    "Lost connection to the socket server. Reconnecting…": "Soket sunucusuna bağlantı kesildi. Yeniden bağlanılıyor…",
     "NoNetworksAvailable": "Kullanılabilir ağ yok. Önce dahili ağları eklemeniz veya sağ tarafta harici ağları etkinleştirmeniz gerekir.",
     "Saved": "Kayıtlı",
     "Deployed": "Deploy Edildi",
@@ -127,6 +131,7 @@
     "terminal": "Terminal",
     "CurrentHostname": "(Ayarlanmamış: Mevcut hostname'i takip et)",
     "New Container Name...": "Yeni Konteyner Adı...",
+    "New Container Name…": "Yeni Konteyner Adı…",
     "Network name...": "Ağ adı...",
     "Select a network...": "Bir ağ seçin..."
 }

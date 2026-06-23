@@ -442,11 +442,11 @@ body.resizing-pane {
 
 // page-change
 .slide-fade-enter-active {
-    transition: all 0.2s $easing-in;
+    transition: opacity 0.2s $easing-in, transform 0.2s $easing-in;
 }
 
 .slide-fade-leave-active {
-    transition: all 0.2s $easing-in;
+    transition: opacity 0.2s $easing-in, transform 0.2s $easing-in;
 }
 
 .slide-fade-enter-from,
@@ -456,11 +456,11 @@ body.resizing-pane {
 }
 
 .slide-fade-right-enter-active {
-    transition: all 0.2s $easing-in;
+    transition: opacity 0.2s $easing-in, transform 0.2s $easing-in;
 }
 
 .slide-fade-right-leave-active {
-    transition: all 0.2s $easing-in;
+    transition: opacity 0.2s $easing-in, transform 0.2s $easing-in;
 }
 
 .slide-fade-right-enter-from,
@@ -470,11 +470,11 @@ body.resizing-pane {
 }
 
 .slide-fade-up-enter-active {
-    transition: all 0.2s $easing-in;
+    transition: opacity 0.2s $easing-in, transform 0.2s $easing-in;
 }
 
 .slide-fade-up-leave-active {
-    transition: all 0.2s $easing-in;
+    transition: opacity 0.2s $easing-in, transform 0.2s $easing-in;
 }
 
 .slide-fade-up-enter-from,
@@ -500,7 +500,7 @@ body.resizing-pane {
         height: 52px;
         text-decoration: none;
         border-radius: 10px;
-        transition: all ease-in-out 0.15s;
+        transition: background-color ease-in-out 0.15s, color ease-in-out 0.15s;
         width: 100%;
         padding: 0 8px;
 
@@ -549,7 +549,7 @@ body.resizing-pane {
 
 
 [contenteditable=true] {
-    transition: all $easing-in 0.2s;
+    transition: background-color $easing-in 0.2s, box-shadow $easing-in 0.2s;
     background-color: rgba(239, 239, 239, 0.7);
     border-radius: 8px;
 
@@ -558,7 +558,8 @@ body.resizing-pane {
     }
 
     &:focus {
-        outline: 0 solid #eee;
+        outline: 2px solid rgba(116, 194, 255, 0.72);
+        outline-offset: 2px;
         background-color: rgba(245, 245, 245, 0.9);
     }
 
@@ -582,7 +583,7 @@ body.resizing-pane {
 }
 
 .action {
-    transition: all $easing-in 0.2s;
+    transition: transform $easing-in 0.2s;
 
     &:hover {
         cursor: pointer;
@@ -695,7 +696,8 @@ code {
     background-color: #74c2ff3d !important;
 }
 .cm-focused {
-    outline: none !important;
+    outline: 2px solid rgba(116, 194, 255, 0.72) !important;
+    outline-offset: 2px;
 }
 
 // Localization

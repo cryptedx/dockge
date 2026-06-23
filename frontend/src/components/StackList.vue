@@ -4,18 +4,20 @@
             <div class="header-top">
                 <div class="placeholder"></div>
                 <div class="search-wrapper">
-                    <a v-if="searchText == ''" class="search-icon" @click="openProjectSearch">
+                    <button v-if="searchText == ''" class="search-icon" type="button" aria-label="Compose-Projekte suchen" @click="openProjectSearch">
                         <font-awesome-icon icon="search" />
-                    </a>
-                    <a v-if="searchText != ''" class="search-icon" style="cursor: pointer" @click="clearSearchText">
+                    </button>
+                    <button v-if="searchText != ''" class="search-icon" type="button" aria-label="Suche leeren" @click="clearSearchText">
                         <font-awesome-icon icon="times" />
-                    </a>
+                    </button>
                     <form @submit.prevent="openProjectSearchFromInput">
                         <input
                             ref="stackSearchInput"
                             v-model="searchText"
                             class="form-control search-input"
+                            name="stack-search"
                             autocomplete="off"
+                            aria-label="Stacks suchen"
                             :placeholder="stackSearchPlaceholder"
                             @focus="openProjectSearchFromInput"
                         />
@@ -28,8 +30,9 @@
                 <router-link to="/compose">{{ $t("addFirstStackMsg") }}</router-link>
             </div>
             <div v-for="(agent, agentIndex) in agentStackList" :key="agentIndex" class="stack-list-inner">
-                <div
-                    v-if="$root.agentCount > 1" class="p-2 agent-select"
+                <button
+                    v-if="$root.agentCount > 1" type="button" class="p-2 agent-select"
+                    :aria-expanded="!closedAgents.get(agent.endpoint)"
                     @click="closedAgents.set(agent.endpoint, !closedAgents.get(agent.endpoint))"
                 >
                     <span class="me-1">
@@ -38,7 +41,7 @@
                     </span>
                     <span v-if="agent.endpoint === 'current'">{{ $t("currentEndpoint") }}</span>
                     <span v-else>{{ agent.endpoint }}</span>
-                </div>
+                </button>
                 <StackListItem
                     v-for="(item, index) in agent.stacks" v-show="$root.agentCount === 1 || !closedAgents.get(agent.endpoint)" :key="index" :stack="item"
                 />
@@ -56,6 +59,7 @@
                         v-model="projectSearchQuery"
                         class="project-search-input"
                         type="search"
+                        name="project-search"
                         placeholder="Compose-Projekt suchen"
                         role="combobox"
                         aria-controls="project-search-results"
@@ -455,9 +459,11 @@ export default {
 }
 
 .search-icon {
-    padding: 10px;
+    background: transparent;
+    border: 0;
     color: #c0c0c0;
     cursor: pointer;
+    padding: 10px;
 
     // Clear filter button (X)
     svg[data-icon="times"] {
@@ -637,6 +643,8 @@ export default {
 }
 
 .agent-select {
+    background: transparent;
+    border: 0;
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
@@ -645,6 +653,8 @@ export default {
     padding-right: 10px;
     display: flex;
     align-items: center;
+    text-align: left;
     user-select: none;
+    width: 100%;
 }
 </style>

@@ -178,7 +178,10 @@ import {
     getSelectableAgentKeys,
     getSelectableStackKeys,
     isCurrentMaintenanceScan,
+    parseMaintenanceSnapshot,
 } from "../util-maintenance";
+
+const MAINTENANCE_SNAPSHOT_KEY = "dockge.maintenance.lastScan";
 
 export default {
     components: {
@@ -292,6 +295,9 @@ export default {
             return `Scanning ${this.scanCurrentAgent} / ${this.scanCurrentStack}`;
         },
     },
+    mounted() {
+        this.restoreSnapshot();
+    },
     methods: {
         scanAllAgents() {
             this.scanning = true;
@@ -364,6 +370,7 @@ export default {
                         scan.error = res.msg || `${task.stackName}: Scan failed`;
                     }
                     this.scanResults = [ ...this.scanResults ];
+                    this.saveSnapshot();
                 }
 
                 this.scanDone = index + 1;
@@ -427,6 +434,7 @@ export default {
                 }
             }
             this.selected = selected;
+            this.saveSnapshot();
         },
         selectableStackKeys(endpoint, stackName) {
             return getSelectableStackKeys(this.rows, endpoint, stackName);
@@ -454,6 +462,7 @@ export default {
                 selected[key] = checked;
             }
             this.selected = selected;
+            this.saveSnapshot();
         },
         setAgentSelection(endpoint, checked) {
             const selected = { ...this.selected };
@@ -461,6 +470,7 @@ export default {
                 selected[key] = checked;
             }
             this.selected = selected;
+            this.saveSnapshot();
         },
         startUpdateQueue() {
             this.queue = buildMaintenanceQueue(this.rows, this.selected);
@@ -515,6 +525,23 @@ export default {
                 return "bg-primary";
             }
             return "bg-secondary";
+        },
+        restoreSnapshot() {
+            const snapshot = parseMaintenanceSnapshot(localStorage.getItem(MAINTENANCE_SNAPSHOT_KEY));
+            if (!snapshot) {
+                return;
+            }
+            this.scanResults = snapshot.scanResults;
+            this.selected = snapshot.selected;
+        },
+        saveSnapshot() {
+            if (!this.scanResults.length) {
+                return;
+            }
+            localStorage.setItem(MAINTENANCE_SNAPSHOT_KEY, JSON.stringify({
+                scanResults: this.scanResults,
+                selected: this.selected,
+            }));
         },
     },
 };

@@ -36,6 +36,11 @@ export interface MaintenanceUpdateJob {
     error?: string;
 }
 
+export interface MaintenanceSnapshot {
+    scanResults: MaintenanceScan[];
+    selected: Record<string, boolean>;
+}
+
 export function maintenanceKey(endpoint: string, stackName: string, serviceName: string) {
     return `${endpoint}_${stackName}_${serviceName}`;
 }
@@ -83,6 +88,24 @@ export function getMaintenanceProgressPercent(done: number, total: number) {
 
 export function isCurrentMaintenanceScan(activeRunId: number, callbackRunId: number) {
     return activeRunId === callbackRunId;
+}
+
+export function parseMaintenanceSnapshot(value: string | null): MaintenanceSnapshot | undefined {
+    if (!value) {
+        return undefined;
+    }
+    try {
+        const snapshot = JSON.parse(value) as Partial<MaintenanceSnapshot>;
+        if (!Array.isArray(snapshot.scanResults) || typeof snapshot.selected !== "object" || snapshot.selected === null) {
+            return undefined;
+        }
+        return {
+            scanResults: snapshot.scanResults,
+            selected: snapshot.selected,
+        };
+    } catch {
+        return undefined;
+    }
 }
 
 export function getSelectableStackKeys(rows: MaintenanceRow[], endpoint: string, stackName: string) {

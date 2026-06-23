@@ -7,6 +7,7 @@ import {
     getSelectableAgentKeys,
     getSelectableStackKeys,
     isCurrentMaintenanceScan,
+    parseMaintenanceSnapshot,
 } from "./util-maintenance";
 
 const scans = [
@@ -102,6 +103,19 @@ assert.equal(getMaintenanceProgressPercent(1, 4), 25);
 assert.equal(getMaintenanceProgressPercent(5, 4), 100);
 assert.equal(isCurrentMaintenanceScan(2, 2), true);
 assert.equal(isCurrentMaintenanceScan(3, 2), false);
+assert.equal(parseMaintenanceSnapshot(null), undefined);
+assert.equal(parseMaintenanceSnapshot("{nope"), undefined);
+assert.deepEqual(parseMaintenanceSnapshot(JSON.stringify({
+    scanResults: scans,
+    selected: {
+        "_media_plex": true,
+    },
+})), {
+    scanResults: scans,
+    selected: {
+        "_media_plex": true,
+    },
+});
 
 assert.deepEqual(getMaintenanceSummary(rows, scans), {
     agents: 3,

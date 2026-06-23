@@ -81,6 +81,10 @@ export function getMaintenanceProgressPercent(done: number, total: number) {
     return Math.min(100, Math.round((done / total) * 100));
 }
 
+export function isCurrentMaintenanceScan(activeRunId: number, callbackRunId: number) {
+    return activeRunId === callbackRunId;
+}
+
 export function getSelectableStackKeys(rows: MaintenanceRow[], endpoint: string, stackName: string) {
     return rows
         .filter((row) => row.endpoint === endpoint && row.stackName === stackName && row.selectable)

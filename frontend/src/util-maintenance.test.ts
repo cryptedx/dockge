@@ -6,6 +6,7 @@ import {
     getMaintenanceProgressPercent,
     getSelectableAgentKeys,
     getSelectableStackKeys,
+    isCurrentMaintenanceScan,
 } from "./util-maintenance";
 
 const scans = [
@@ -99,6 +100,8 @@ assert.equal(duplicateRows[0].selectable, true);
 assert.equal(getMaintenanceProgressPercent(0, 0), 0);
 assert.equal(getMaintenanceProgressPercent(1, 4), 25);
 assert.equal(getMaintenanceProgressPercent(5, 4), 100);
+assert.equal(isCurrentMaintenanceScan(2, 2), true);
+assert.equal(isCurrentMaintenanceScan(3, 2), false);
 
 assert.deepEqual(getMaintenanceSummary(rows, scans), {
     agents: 3,

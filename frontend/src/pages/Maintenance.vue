@@ -6,10 +6,15 @@
                     <h1 class="mb-1">Maintenance</h1>
                     <div class="maintenance-subtitle">Scan all agents and update selected services sequentially.</div>
                 </div>
-                <button class="btn btn-primary" type="button" :disabled="scanning || queueRunning" @click="scanAllAgents">
-                    <font-awesome-icon icon="search" class="me-1" />
-                    {{ scanning ? "Scanning" : "Scan all agents" }}
-                </button>
+                <div class="maintenance-actions">
+                    <button class="btn btn-primary" type="button" :disabled="scanning || queueRunning" @click="scanAllAgents">
+                        <font-awesome-icon icon="search" class="me-1" />
+                        {{ scanning ? "Scanning" : "Scan all agents" }}
+                    </button>
+                    <button v-if="scanning" class="btn btn-danger" type="button" @click="stopScan">
+                        Stop
+                    </button>
+                </div>
             </div>
 
             <div class="maintenance-summary mb-3">
@@ -57,6 +62,15 @@
 
             <div class="shadow-box maintenance-table-wrap">
                 <table class="table maintenance-table mb-0">
+                    <colgroup>
+                        <col class="maintenance-col-service" />
+                        <col class="maintenance-col-agent" />
+                        <col class="maintenance-col-stack" />
+                        <col class="maintenance-col-container" />
+                        <col class="maintenance-col-image" />
+                        <col class="maintenance-col-status" />
+                        <col class="maintenance-col-reason" />
+                    </colgroup>
                     <thead>
                         <tr>
                             <th>Service</th>
@@ -112,7 +126,9 @@
                                 </label>
                             </td>
                             <td>{{ row.service }}</td>
-                            <td class="maintenance-image">{{ row.image }}</td>
+                            <td class="maintenance-image">
+                                <span :title="row.image">{{ row.image }}</span>
+                            </td>
                             <td><span class="badge" :class="badgeClass(row.status)">{{ statusLabel(row.status) }}</span></td>
                             <td class="maintenance-reason">{{ row.reason || "" }}</td>
                         </tr>
@@ -161,6 +177,7 @@ import {
     getMaintenanceSummary,
     getSelectableAgentKeys,
     getSelectableStackKeys,
+    isCurrentMaintenanceScan,
 } from "../util-maintenance";
 
 export default {
@@ -180,6 +197,7 @@ export default {
             searchText: "",
             scanCurrentAgent: "",
             scanCurrentStack: "",
+            scanRunId: 0,
             scanTotal: 0,
             confirmUpdate: false,
         };
@@ -283,6 +301,8 @@ export default {
             this.scanDone = 0;
             this.scanCurrentAgent = "";
             this.scanCurrentStack = "";
+            const scanRunId = this.scanRunId + 1;
+            this.scanRunId = scanRunId;
 
             const agents = this.getAgentTargets();
             const tasks = [];
@@ -315,17 +335,23 @@ export default {
 
             this.scanTotal = tasks.length;
             if (tasks.length === 0) {
-                this.finishScan();
+                this.finishScan(scanRunId);
                 return;
             }
-            this.runNextScanTask(tasks, 0);
+            this.runNextScanTask(tasks, 0, scanRunId);
         },
-        runNextScanTask(tasks, index) {
+        runNextScanTask(tasks, index, scanRunId) {
+            if (!isCurrentMaintenanceScan(this.scanRunId, scanRunId)) {
+                return;
+            }
             const task = tasks[index];
             this.scanCurrentAgent = task.name;
             this.scanCurrentStack = task.stackName;
 
             this.$root.emitAgent(task.endpoint, "checkStackUpdates", task.stackName, (res) => {
+                if (!isCurrentMaintenanceScan(this.scanRunId, scanRunId)) {
+                    return;
+                }
                 const scan = this.scanResults.find((item) => item.endpoint === task.endpoint);
                 if (scan) {
                     if (res.ok) {
@@ -342,13 +368,23 @@ export default {
 
                 this.scanDone = index + 1;
                 if (this.scanDone === tasks.length) {
-                    this.finishScan();
+                    this.finishScan(scanRunId);
                     return;
                 }
-                this.runNextScanTask(tasks, index + 1);
+                this.runNextScanTask(tasks, index + 1, scanRunId);
             });
         },
-        finishScan() {
+        stopScan() {
+            this.scanRunId++;
+            this.scanning = false;
+            this.scanCurrentAgent = "";
+            this.scanCurrentStack = "";
+            this.selectAllUpdateable();
+        },
+        finishScan(scanRunId) {
+            if (!isCurrentMaintenanceScan(this.scanRunId, scanRunId)) {
+                return;
+            }
             this.scanning = false;
             this.scanCurrentAgent = "";
             this.scanCurrentStack = "";
@@ -488,6 +524,7 @@ export default {
 @import "../styles/vars.scss";
 
 .maintenance-header,
+.maintenance-actions,
 .maintenance-toolbar,
 .maintenance-batch,
 .maintenance-queue-header {
@@ -526,7 +563,8 @@ export default {
 }
 
 .maintenance-table {
-    min-width: 1080px;
+    min-width: 1120px;
+    table-layout: fixed;
     --bs-table-bg: transparent;
     --bs-table-color: inherit;
     --bs-table-border-color: rgba(255, 255, 255, 0.08);
@@ -538,6 +576,34 @@ export default {
         --bs-table-hover-bg: #161b22;
         background-color: #0d1117;
     }
+}
+
+.maintenance-col-service {
+    width: 10%;
+}
+
+.maintenance-col-agent {
+    width: 17%;
+}
+
+.maintenance-col-stack {
+    width: 14%;
+}
+
+.maintenance-col-container {
+    width: 12%;
+}
+
+.maintenance-col-image {
+    width: auto;
+}
+
+.maintenance-col-status {
+    width: 82px;
+}
+
+.maintenance-col-reason {
+    width: 120px;
 }
 
 .maintenance-progress-head {
@@ -561,10 +627,17 @@ export default {
 }
 
 .maintenance-check span,
-.maintenance-image,
 .maintenance-reason,
 .maintenance-job-services {
     overflow-wrap: anywhere;
+}
+
+.maintenance-image span {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .maintenance-job {

@@ -7,6 +7,8 @@ import semver from "semver";
 import { R } from "redbean-node";
 import dayjs, { Dayjs } from "dayjs";
 
+const AGENT_REQUEST_TIMEOUT_MS = 60_000;
+
 /**
  * Dockge Instance Manager
  * One AgentManager per Socket connection
@@ -274,6 +276,22 @@ export class AgentManager {
                 log.error("agent-manager", `${endpoint}: Socket client not connected`);
                 throw new Error("Socket client not connected for endpoint: " + endpoint);
             }
+        }
+
+        const callback = args[args.length - 1];
+        if (typeof callback === "function") {
+            const eventArgs = args.slice(0, -1);
+            client.timeout(AGENT_REQUEST_TIMEOUT_MS).emit("agent", endpoint, eventName, ...eventArgs, (err: Error | null, ...callbackArgs: unknown[]) => {
+                if (err) {
+                    callback({
+                        ok: false,
+                        msg: `${endpoint}: ${eventName} timed out after ${AGENT_REQUEST_TIMEOUT_MS / 1000}s`,
+                    });
+                    return;
+                }
+                callback(...callbackArgs);
+            });
+            return;
         }
 
         client.emit("agent", endpoint, eventName, ...args);

@@ -1,6 +1,6 @@
 import { DockgeServer } from "../dockge-server";
 import { log } from "../log";
-import { checkLogin, DockgeSocket } from "../util-server";
+import { callbackError, checkLogin, DockgeSocket } from "../util-server";
 import { AgentSocket } from "../../common/agent-socket";
 import { ALL_ENDPOINTS } from "../../common/util-common";
 
@@ -36,6 +36,7 @@ export class AgentProxySocketHandler {
                 if (e instanceof Error) {
                     log.warn("agent", e.message);
                 }
+                callbackError(e, args[args.length - 1]);
             }
         });
     }

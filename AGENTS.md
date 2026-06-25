@@ -14,7 +14,7 @@ After each commit intended for testing on this branch:
 3. Deploy to the live test host:
 
    ```bash
-   ssh docker-main 'cd /opt/dockge-custom && git fetch origin master && git checkout master && git pull --ff-only origin master && docker build --target release -t dockge:compose-split-pane -f docker/Dockerfile . && cd /opt/dockge && docker compose up -d'
+   ssh docker-main 'cd /opt/dockge-custom && git fetch origin master && git checkout master && git pull --ff-only origin master && docker build --target release -t dockge:master -f docker/Dockerfile . && cd /opt/dockge && docker compose up -d'
    ```
 
 4. Verify the live container:

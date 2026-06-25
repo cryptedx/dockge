@@ -102,6 +102,7 @@ export default {
 
         // Add right-click context menu handler for paste
         this.$refs.terminal.addEventListener("contextmenu", this.handleContextMenu);
+        this.observeTerminalSize();
 
         // Add selection handler for copy to clipboard
         this.terminal.onSelectionChange(() => {
@@ -140,6 +141,8 @@ export default {
 
     unmounted() {
         window.removeEventListener("resize", this.onResizeEvent); // Remove the resize event listener from the window object.
+        this.terminalResizeObserver?.disconnect();
+        this.terminalResizeObserver = null;
         this.$root.unbindTerminal(this.name);
         this.terminal.dispose();
         this.$refs.terminal?.removeEventListener("contextmenu", this.handleContextMenu);
@@ -265,6 +268,17 @@ export default {
             });
         },
 
+        observeTerminalSize() {
+            if (typeof ResizeObserver === "undefined") {
+                return;
+            }
+
+            this.terminalResizeObserver = new ResizeObserver(() => {
+                this.updateTerminalSize();
+            });
+            this.terminalResizeObserver.observe(this.$el);
+        },
+
         /**
          * Update the terminal size to fit the container size.
          *
@@ -272,18 +286,28 @@ export default {
          * It then addes an event listener to the window object to listen for resize events and calls the fit method of the terminalFitAddOn.
          */
         updateTerminalSize() {
-            if (!Object.hasOwn(this, "terminalFitAddOn")) {
+            if (!this.terminal || !this.$el) {
+                return;
+            }
+
+            if (!this.terminalFitAddOn) {
                 this.terminalFitAddOn = new FitAddon();
                 this.terminal.loadAddon(this.terminalFitAddOn);
                 window.addEventListener("resize", this.onResizeEvent);
             }
+
+            const { width, height } = this.$el.getBoundingClientRect();
+            if (width === 0 || height === 0) {
+                return;
+            }
+
             this.terminalFitAddOn.fit();
         },
         /**
          * Handles the resize event of the terminal component.
          */
         onResizeEvent() {
-            this.terminalFitAddOn.fit();
+            this.updateTerminalSize();
             let rows = this.terminal.rows;
             let cols = this.terminal.cols;
             this.$root.emitAgent(this.endpoint, "terminalResize", this.name, rows, cols);

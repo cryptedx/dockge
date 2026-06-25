@@ -36,6 +36,26 @@ for selector, declarations in checks.items():
     for declaration in declarations:
         if declaration not in block:
             raise SystemExit(f"FAIL: {selector} must set {declaration}")
+
+resize_observer_index = source.find("new ResizeObserver")
+if resize_observer_index == -1:
+    raise SystemExit("FAIL: Terminal.vue must observe its rendered size")
+
+if source.find("this.updateTerminalSize()", resize_observer_index) == -1:
+    raise SystemExit("FAIL: terminal resize observer must refit xterm")
+
+required_snippets = [
+    "observeTerminalSize()",
+    "this.terminalResizeObserver.observe(this.$el)",
+    "this.terminalResizeObserver?.disconnect()",
+    "const { width, height } = this.$el.getBoundingClientRect();",
+    "if (width === 0 || height === 0) {",
+    "onResizeEvent() {\n            this.updateTerminalSize();",
+]
+
+for snippet in required_snippets:
+    if snippet not in source:
+        raise SystemExit(f"FAIL: missing terminal visibility sizing guard: {snippet}")
 PY
 
 echo "PASS terminal-layout"

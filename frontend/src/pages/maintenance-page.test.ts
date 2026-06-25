@@ -5,4 +5,6 @@ const source = readFileSync(new URL("./Maintenance.vue", import.meta.url), "utf-
 
 assert.match(source, /scanAllAgents\(clearQueue = true\)/);
 assert.match(source, /if \(clearQueue\) \{\s+this\.queue = \[\];\s+\}/);
-assert.match(source, /this\.scanAllAgents\(false\);/);
+assert.doesNotMatch(source, /this\.scanAllAgents\(false\);/);
+assert.match(source, /queueProgressLabel\(\)/);
+assert.match(source, /this\.markJobServicesCurrent\(nextJob\);/);

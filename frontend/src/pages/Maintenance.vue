@@ -117,7 +117,10 @@
             <div v-if="queue.length > 0" class="shadow-box big-padding mt-3 maintenance-queue">
                 <div class="maintenance-queue-header mb-2">
                     <h4 class="mb-0">Update queue</h4>
-                    <span class="badge bg-secondary">{{ queueStatus }}</span>
+                    <div class="maintenance-queue-badges">
+                        <span class="badge bg-secondary">{{ queueStatus }}</span>
+                        <span class="badge bg-info">{{ queueProgressLabel }}</span>
+                    </div>
                 </div>
                 <div v-for="job in queue" :key="`${job.endpoint}_${job.stackName}`" class="maintenance-job">
                     <span class="badge" :class="jobBadgeClass(job.status)">{{ job.status }}</span>
@@ -260,6 +263,18 @@ export default {
                 return "finished with errors";
             }
             return "finished";
+        },
+        queueServiceTotal() {
+            return this.queue.reduce((total, job) => total + job.serviceNames.length, 0);
+        },
+        queueServiceComplete() {
+            return this.queue
+                .filter((job) => job.status === "done" || job.status === "failed")
+                .reduce((total, job) => total + job.serviceNames.length, 0);
+        },
+        queueProgressLabel() {
+            const label = this.queueServiceTotal === 1 ? "container" : "containers";
+            return `${this.queueServiceComplete} / ${this.queueServiceTotal} ${label}`;
         },
         scanPercent() {
             return getMaintenanceProgressPercent(this.scanDone, this.scanTotal);
@@ -416,13 +431,14 @@ export default {
         },
         startUpdateQueue() {
             this.queue = buildMaintenanceQueue(this.rows, this.selected);
+            this.selected = {};
+            this.saveSnapshot();
             this.runNextJob();
         },
         runNextJob() {
             const nextJob = this.queue.find((job) => job.status === "queued");
             if (!nextJob) {
                 this.queueRunning = false;
-                this.scanAllAgents(false);
                 return;
             }
 
@@ -431,12 +447,29 @@ export default {
             this.$root.emitAgent(nextJob.endpoint, "applyStackServiceUpdates", nextJob.stackName, nextJob.serviceNames, (res) => {
                 if (res.ok) {
                     nextJob.status = "done";
+                    this.markJobServicesCurrent(nextJob);
                 } else {
                     nextJob.status = "failed";
                     nextJob.error = res.msg || "Update failed";
                 }
                 this.runNextJob();
             });
+        },
+        markJobServicesCurrent(job) {
+            const scan = this.scanResults.find((item) => item.endpoint === job.endpoint);
+            const stack = scan?.stacks.find((item) => item.name === job.stackName);
+            if (!stack) {
+                return;
+            }
+            const serviceNames = new Set(job.serviceNames);
+            for (const service of stack.services) {
+                if (serviceNames.has(service.service)) {
+                    service.status = "current";
+                    service.reason = undefined;
+                }
+            }
+            this.scanResults = [ ...this.scanResults ];
+            this.saveSnapshot();
         },
         statusLabel(status) {
             if (status === "update-available") {
@@ -503,6 +536,13 @@ export default {
     gap: 12px;
     justify-content: space-between;
     min-width: 0;
+}
+
+.maintenance-queue-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
 }
 
 .maintenance-subtitle,

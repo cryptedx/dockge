@@ -520,11 +520,10 @@ export default {
     color: $dark-font-color;
     min-height: 44px;
     min-width: 0;
-    outline: 0;
     padding: 0 14px;
 }
 
-.project-search-input:focus {
+.project-search-input:focus-visible {
     box-shadow: 0 0 0 2px rgba(116, 194, 255, 0.72);
 }
 

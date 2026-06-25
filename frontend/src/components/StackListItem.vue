@@ -55,7 +55,7 @@ export default {
     align-items: center;
     min-height: 52px;
     border-radius: 10px;
-    transition: all ease-in-out 0.15s;
+    transition: background-color ease-in-out 0.15s, color ease-in-out 0.15s, opacity ease-in-out 0.15s;
     width: 100%;
     padding: 5px 8px;
     &.disabled {
@@ -81,7 +81,7 @@ export default {
 }
 
 .animated {
-    transition: all 0.2s $easing-in;
+    transition: transform 0.2s $easing-in;
 }
 
 .select-input-wrapper {

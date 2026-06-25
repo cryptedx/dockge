@@ -201,7 +201,7 @@ footer {
         padding: 0.7em 1em;
         cursor: pointer;
         border-left-width: 0;
-        transition: all ease-in-out 0.1s;
+        transition: background-color ease-in-out 0.1s, color ease-in-out 0.1s;
     }
 
     .menu-item:hover {

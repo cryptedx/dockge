@@ -148,7 +148,11 @@ export default {
             background-color: $dark-bg2;
             border: none;
             color: $dark-font-color;
-            outline: none;
+
+            &:focus-visible {
+                outline: 2px solid rgba(116, 194, 255, 0.72);
+                outline-offset: 2px;
+            }
 
             &::placeholder {
                 color: #1d2634;

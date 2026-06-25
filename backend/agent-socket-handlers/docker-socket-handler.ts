@@ -2,6 +2,7 @@ import { DockgeServer } from "../dockge-server";
 import { callbackError, callbackResult, checkLogin, DockgeSocket, ValidationError } from "../util-server";
 import { Stack } from "../stack";
 import { AgentSocket } from "../../common/agent-socket";
+import { isComposeServiceName } from "../update-planner";
 
 export class DockerSocketHandler {
     create(socket : DockgeSocket, server : DockgeServer, agentSocket : AgentSocket) {
@@ -196,6 +197,91 @@ export class DockerSocketHandler {
                 callbackError(e, callback);
             }
         });
+
+        agentSocket.on("checkStackUpdates", async (stackName : unknown, callback) => {
+            try {
+                checkLogin(socket);
+
+                if (typeof(stackName) !== "string") {
+                    throw new ValidationError("Stack name must be a string");
+                }
+
+                const stack = await Stack.getStack(server, stackName);
+                callbackResult({
+                    ok: true,
+                    updates: await stack.checkUpdates(),
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        agentSocket.on("checkAllStackUpdates", async (callback) => {
+            try {
+                checkLogin(socket);
+
+                const stackList = await Stack.getStackList(server);
+                const stacks = [];
+
+                for (const [ stackName, stack ] of stackList) {
+                    if (!stack.isManagedByDockge) {
+                        continue;
+                    }
+
+                    try {
+                        const updates = await stack.checkUpdates();
+                        stacks.push({
+                            name: stackName,
+                            services: updates.services,
+                        });
+                    } catch (e) {
+                        stacks.push({
+                            name: stackName,
+                            error: e instanceof Error ? e.message : "Update check failed",
+                            services: [],
+                        });
+                    }
+                }
+
+                callbackResult({
+                    ok: true,
+                    checkedAt: new Date().toISOString(),
+                    stacks,
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        const applySelectedStackUpdates = async (stackName : unknown, serviceNames : unknown, callback : unknown) => {
+            try {
+                checkLogin(socket);
+
+                if (typeof(stackName) !== "string") {
+                    throw new ValidationError("Stack name must be a string");
+                }
+                if (!Array.isArray(serviceNames) || serviceNames.some((serviceName) => typeof serviceName !== "string" || !isComposeServiceName(serviceName))) {
+                    throw new ValidationError("Service names must be a string array");
+                }
+                if (serviceNames.length === 0) {
+                    throw new ValidationError("Select at least one service to update");
+                }
+
+                const stack = await Stack.getStack(server, stackName);
+                await stack.update(socket, serviceNames);
+                callbackResult({
+                    ok: true,
+                    msg: "Updated",
+                    msgi18n: true,
+                }, callback);
+                server.sendStackList();
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        };
+
+        agentSocket.on("applyStackUpdates", applySelectedStackUpdates);
+        agentSocket.on("applyStackServiceUpdates", applySelectedStackUpdates);
 
         // down stack
         agentSocket.on("downStack", async (stackName : unknown, callback) => {

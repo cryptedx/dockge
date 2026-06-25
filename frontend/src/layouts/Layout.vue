@@ -28,6 +28,12 @@
                 </li>
 
                 <li v-if="$root.loggedIn" class="nav-item me-2">
+                    <router-link to="/maintenance" class="nav-link">
+                        <font-awesome-icon icon="cloud-arrow-down" /> Maintenance
+                    </router-link>
+                </li>
+
+                <li v-if="$root.loggedIn" class="nav-item me-2">
                     <router-link to="/console" class="nav-link">
                         <font-awesome-icon icon="terminal" /> {{ $t("console") }}
                     </router-link>

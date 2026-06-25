@@ -173,7 +173,32 @@
                             </div>
                         </div>
 
-                        <div class="compose-details-section">
+                        <div v-if="!isEditMode && !isAdd" class="compose-details-tabs mb-3" role="tablist" aria-label="Stack details">
+                            <button
+                                class="btn btn-sm"
+                                :class="detailsTab === 'containers' ? 'btn-primary' : 'btn-normal'"
+                                type="button"
+                                role="tab"
+                                :aria-selected="detailsTab === 'containers'"
+                                @click="detailsTab = 'containers'"
+                            >
+                                {{ $tc("container", 2) }}
+                            </button>
+                            <button
+                                class="btn btn-sm"
+                                :class="detailsTab === 'updates' ? 'btn-primary' : 'btn-normal'"
+                                type="button"
+                                role="tab"
+                                :aria-selected="detailsTab === 'updates'"
+                                @click="detailsTab = 'updates'"
+                            >
+                                <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
+                                Updates
+                                <span v-if="updateableServices.length > 0" class="badge bg-danger ms-1">{{ updateableServices.length }}</span>
+                            </button>
+                        </div>
+
+                        <div v-if="isEditMode || detailsTab === 'containers'" class="compose-details-section">
                             <h4 class="mb-3">{{ $tc("container", 2) }}</h4>
 
                             <div v-if="isEditMode" class="input-group mb-3">
@@ -205,6 +230,59 @@
                                     @stop-service="stopService"
                                     @restart-service="restartService"
                                 />
+                            </div>
+                        </div>
+
+                        <div v-if="!isEditMode && !isAdd && detailsTab === 'updates'" class="compose-details-section">
+                            <div class="compose-updates-header mb-3">
+                                <h4 class="mb-0">Updates</h4>
+                                <button class="btn btn-normal btn-sm" type="button" :disabled="updateScanRunning || processing" @click="scanStackUpdates">
+                                    <font-awesome-icon icon="search" class="me-1" />
+                                    {{ updateScanRunning ? "Scanning" : "Scan" }}
+                                </button>
+                            </div>
+
+                            <div class="shadow-box big-padding mb-3 update-panel">
+                                <div v-if="!updateCheck && !updateScanRunning" class="update-empty">
+                                    Scan this stack to compare local image digests with registry manifests.
+                                </div>
+
+                                <div v-if="updateScanRunning" class="update-empty">
+                                    Checking registry manifests...
+                                </div>
+
+                                <div v-if="updateCheck && serviceUpdates.length === 0" class="update-empty">
+                                    No image-backed services found.
+                                </div>
+
+                                <div v-for="service in serviceUpdates" :key="service.service" class="update-row">
+                                    <label class="update-check">
+                                        <input
+                                            v-model="selectedUpdates[service.service]"
+                                            class="form-check-input"
+                                            type="checkbox"
+                                            :disabled="service.status !== 'update-available' || processing"
+                                        />
+                                    </label>
+                                    <div class="update-copy">
+                                        <div class="update-title">
+                                            <span>{{ service.service }}</span>
+                                            <span class="badge" :class="updateBadgeClass(service.status)">{{ updateStatusLabel(service.status) }}</span>
+                                        </div>
+                                        <div class="update-image">{{ service.image }}</div>
+                                        <div v-if="service.reason" class="update-reason">{{ service.reason }}</div>
+                                    </div>
+                                </div>
+
+                                <button
+                                    class="btn btn-primary w-100 mt-3"
+                                    type="button"
+                                    :disabled="selectedUpdateCount === 0 || processing"
+                                    @click="applySelectedUpdates"
+                                >
+                                    <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
+                                    Update selected
+                                </button>
                             </div>
                         </div>
 
@@ -318,6 +396,11 @@ import {
     shouldCollapseSecondaryPanes,
     writePaneWidth,
 } from "../util-split-pane";
+import {
+    getMaintenanceSnapshotStack,
+    MAINTENANCE_SNAPSHOT_KEY,
+    parseMaintenanceSnapshot,
+} from "../util-maintenance";
 
 const template = `
 services:
@@ -412,6 +495,10 @@ export default {
             isResizingDetailsPane: false,
             composeFocusMode: false,
             windowWidth: window.innerWidth,
+            detailsTab: "containers",
+            updateCheck: null,
+            updateScanRunning: false,
+            selectedUpdates: {},
         };
     },
     computed: {
@@ -452,6 +539,18 @@ export default {
                 });
             }
             return urls;
+        },
+
+        serviceUpdates() {
+            return this.updateCheck?.services || [];
+        },
+
+        updateableServices() {
+            return this.serviceUpdates.filter((service) => service.status === "update-available");
+        },
+
+        selectedUpdateCount() {
+            return Object.values(this.selectedUpdates).filter(Boolean).length;
         },
 
         isAdd() {
@@ -831,6 +930,8 @@ export default {
             this.$root.emitAgent(this.endpoint, "getStack", this.stack.name, (res) => {
                 if (res.ok) {
                     this.stack = res.stack;
+                    this.restoreUpdateCheck();
+                    this.detailsTab = "containers";
                     this.yamlCodeChange();
                     this.processing = false;
                     this.bindTerminal();
@@ -941,6 +1042,76 @@ export default {
                 this.processing = false;
                 this.$root.toastRes(res);
             });
+        },
+
+        scanStackUpdates() {
+            this.updateScanRunning = true;
+            this.selectedUpdates = {};
+
+            this.$root.emitAgent(this.endpoint, "checkStackUpdates", this.stack.name, (res) => {
+                this.updateScanRunning = false;
+                if (res.ok) {
+                    this.updateCheck = res.updates;
+                    this.selectUpdateableServices();
+                } else {
+                    this.$root.toastRes(res);
+                }
+            });
+        },
+
+        applySelectedUpdates() {
+            const serviceNames = Object.entries(this.selectedUpdates)
+                .filter((entry) => entry[1])
+                .map((entry) => entry[0]);
+
+            if (serviceNames.length === 0) {
+                return;
+            }
+
+            this.processing = true;
+            this.$root.emitAgent(this.endpoint, "applyStackUpdates", this.stack.name, serviceNames, (res) => {
+                this.processing = false;
+                this.$root.toastRes(res);
+                if (res.ok) {
+                    this.scanStackUpdates();
+                }
+            });
+        },
+
+        updateStatusLabel(status) {
+            if (status === "update-available") {
+                return "Update";
+            }
+            if (status === "current") {
+                return "Current";
+            }
+            return "Unknown";
+        },
+
+        updateBadgeClass(status) {
+            if (status === "update-available") {
+                return "bg-danger";
+            }
+            if (status === "current") {
+                return "bg-success";
+            }
+            return "bg-secondary";
+        },
+
+        restoreUpdateCheck() {
+            this.updateCheck = getMaintenanceSnapshotStack(
+                parseMaintenanceSnapshot(localStorage.getItem(MAINTENANCE_SNAPSHOT_KEY)),
+                this.endpoint,
+                this.stack.name
+            ) || null;
+            this.selectUpdateableServices();
+        },
+
+        selectUpdateableServices() {
+            this.selectedUpdates = {};
+            for (const service of this.updateableServices) {
+                this.selectedUpdates[service.service] = true;
+            }
         },
 
         deleteDialog() {
@@ -1139,6 +1310,82 @@ export default {
 
 .compose-details-section {
     min-width: 0;
+}
+
+.compose-details-tabs {
+    display: flex;
+    gap: 8px;
+    min-width: 0;
+}
+
+.compose-details-tabs .btn {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-width: 0;
+}
+
+.compose-updates-header,
+.update-title {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    min-width: 0;
+}
+
+.update-panel {
+    min-width: 0;
+}
+
+.update-empty {
+    color: $dark-font-color2;
+    font-size: 0.9rem;
+}
+
+.update-row {
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+}
+
+.update-row:first-of-type {
+    padding-top: 0;
+}
+
+.update-row:last-of-type {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.update-check {
+    display: flex;
+    padding-top: 3px;
+}
+
+.update-copy {
+    min-width: 0;
+    width: 100%;
+}
+
+.update-title span:first-child,
+.update-image,
+.update-reason {
+    overflow-wrap: anywhere;
+}
+
+.update-title span:first-child {
+    font-weight: 600;
+}
+
+.update-image,
+.update-reason {
+    color: $dark-font-color2;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    margin-top: 4px;
 }
 
 .compose-terminal-panel {

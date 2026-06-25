@@ -381,6 +381,19 @@ export default {
 <style lang="scss">
 .terminal {
     background-color: black !important;
+    box-sizing: border-box;
+    height: 100%;
+    overflow: hidden;
+}
+
+.terminal .main-terminal,
+.terminal .xterm {
+    height: 100%;
+    width: 100%;
+}
+
+.terminal .xterm-viewport,
+.terminal .xterm-screen {
     height: 100%;
 }
 </style>

@@ -37,6 +37,8 @@
 </template>
 
 <script>
+import { applyComposeNetworks } from "../util-compose";
+
 export default {
     data() {
         return {
@@ -110,7 +112,7 @@ export default {
             this.networkList = [];
             this.externalList = {};
 
-            for (const key in this.jsonConfig.networks) {
+            for (const key in this.jsonConfig.networks || {}) {
                 let obj = {
                     key: key,
                     value: this.jsonConfig.networks[key],
@@ -168,17 +170,7 @@ export default {
                 return;
             }
 
-            this.jsonConfig.networks = {};
-
-            // Internal networks
-            for (const networkRow of this.networkList) {
-                this.jsonConfig.networks[networkRow.key] = networkRow.value;
-            }
-
-            // External networks
-            for (const networkName in this.externalList) {
-                this.jsonConfig.networks[networkName] = this.externalList[networkName];
-            }
+            applyComposeNetworks(this.jsonConfig, this.networkList, this.externalList);
 
             console.debug("applyToYAML", this.jsonConfig.networks);
         }

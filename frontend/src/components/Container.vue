@@ -229,7 +229,7 @@ export default defineComponent({
 
         networkList() {
             let list = [];
-            for (const networkName in this.jsonObject.networks) {
+            for (const networkName in this.jsonObject.networks || {}) {
                 list.push(networkName);
             }
             return list;

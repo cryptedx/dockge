@@ -8,16 +8,17 @@
             :placeholder="placeholder"
             :maxlength="maxlength"
             :autocomplete="autocomplete"
+            :name="name"
             :required="required"
             :readonly="readonly"
         >
 
-        <a v-if="visibility == 'password'" class="btn btn-outline-primary" @click="showInput()">
+        <button v-if="visibility == 'password'" class="btn btn-outline-primary" type="button" aria-label="Show value" @click="showInput()">
             <font-awesome-icon icon="eye" />
-        </a>
-        <a v-if="visibility == 'text'" class="btn btn-outline-primary" @click="hideInput()">
+        </button>
+        <button v-if="visibility == 'text'" class="btn btn-outline-primary" type="button" aria-label="Hide value" @click="hideInput()">
             <font-awesome-icon icon="eye-slash" />
-        </a>
+        </button>
     </div>
 </template>
 
@@ -43,6 +44,11 @@ export default {
         autocomplete: {
             type: String,
             default: "new-password",
+        },
+        /** Input name for form semantics */
+        name: {
+            type: String,
+            default: undefined,
         },
         /** Is the input required? */
         required: {

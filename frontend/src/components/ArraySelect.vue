@@ -3,16 +3,23 @@
         <div v-if="valid">
             <ul v-if="isArrayInited" class="list-group">
                 <li v-for="(value, index) in array" :key="index" class="list-group-item">
-                    <select v-model="array[index]" class="no-bg domain-input">
+                    <select
+                        v-model="array[index]"
+                        class="no-bg domain-input"
+                        :name="`${name}-${index}`"
+                        :aria-label="`${displayName} ${index + 1}`"
+                    >
                         <option value="">{{ $t(`Select a network...`) }}</option>
                         <option v-for="option in options" :key="option" :value="option">{{ option }}</option>
                     </select>
 
-                    <font-awesome-icon icon="times" class="action remove ms-2 me-3 text-danger" @click="remove(index)" />
+                    <button class="action remove ms-2 me-3 text-danger" type="button" :aria-label="`Remove ${displayName} ${index + 1}`" @click="remove(index)">
+                        <font-awesome-icon icon="times" />
+                    </button>
                 </li>
             </ul>
 
-            <button class="btn btn-normal btn-sm mt-3" @click="addField">{{ $t("addListItem", [ displayName ]) }}</button>
+            <button class="btn btn-normal btn-sm mt-3" type="button" @click="addField">{{ $t("addListItem", [ displayName ]) }}</button>
         </div>
         <div v-else>
             Long syntax is not supported here. Please use the YAML editor.
@@ -122,6 +129,12 @@ export default {
             &::placeholder {
                 color: #1d2634;
             }
+        }
+
+        .remove {
+            background: transparent;
+            border: 0;
+            padding: 0;
         }
     }
 }

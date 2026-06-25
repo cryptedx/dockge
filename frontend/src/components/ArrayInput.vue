@@ -3,12 +3,22 @@
         <div v-if="valid">
             <ul v-if="isArrayInited" class="list-group">
                 <li v-for="(value, index) in array" :key="index" class="list-group-item">
-                    <input v-model="array[index]" type="text" class="no-bg domain-input" :placeholder="placeholder" />
-                    <font-awesome-icon icon="times" class="action remove ms-2 me-3 text-danger" @click="remove(index)" />
+                    <input
+                        v-model="array[index]"
+                        type="text"
+                        class="no-bg domain-input"
+                        :name="`${name}-${index}`"
+                        autocomplete="off"
+                        :aria-label="`${displayName} ${index + 1}`"
+                        :placeholder="placeholder"
+                    />
+                    <button class="action remove ms-2 me-3 text-danger" type="button" :aria-label="`Remove ${displayName} ${index + 1}`" @click="remove(index)">
+                        <font-awesome-icon icon="times" />
+                    </button>
                 </li>
             </ul>
 
-            <button class="btn btn-normal btn-sm mt-3" @click="addField">{{ $t("addListItem", [ displayName ]) }}</button>
+            <button class="btn btn-normal btn-sm mt-3" type="button" @click="addField">{{ $t("addListItem", [ displayName ]) }}</button>
         </div>
         <div v-else>
             {{ $t("LongSyntaxNotSupported") }}
@@ -143,6 +153,12 @@ export default {
             &::placeholder {
                 color: #1d2634;
             }
+        }
+
+        .remove {
+            background: transparent;
+            border: 0;
+            padding: 0;
         }
     }
 }

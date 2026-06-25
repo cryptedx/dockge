@@ -142,7 +142,7 @@
                         v-show="!composeFocusMode"
                         id="compose-details-pane"
                         class="compose-details-pane"
-                        :style="{ width: `${detailsPaneWidth}px` }"
+                        :style="detailsPaneStyle"
                     >
                         <div v-if="isAdd" class="compose-details-section">
                             <h4 class="mb-3">{{ $t("general") }}</h4>
@@ -497,6 +497,7 @@ export default {
             isResizingDetailsPane: false,
             composeFocusMode: false,
             windowWidth: window.innerWidth,
+            windowTop: 0,
             detailsTab: "containers",
             updateCheck: null,
             updateScanRunning: false,
@@ -510,6 +511,22 @@ export default {
 
         showCombinedTerminalPanel() {
             return !this.isEditMode && !this.composeFocusMode;
+        },
+
+        detailsPaneStyle() {
+            const style = {
+                width: `${this.detailsPaneWidth}px`,
+            };
+
+            if (this.windowWidth > 550) {
+                return {
+                    ...style,
+                    height: `calc(100vh - 160px + ${this.windowTop}px)`,
+                };
+            }
+
+            style.height = "calc(100vh - 160px)";
+            return style;
         },
 
         endpointDisplay() {
@@ -693,6 +710,8 @@ export default {
         this.requestDockerStats();
         this.scheduleCombinedTerminalPanelBoundsUpdate();
         window.addEventListener("resize", this.updateWindowWidth);
+        window.addEventListener("scroll", this.onScroll);
+        this.onScroll();
         window.addEventListener("keydown", this.handleGlobalTerminalShortcut);
     },
     updated() {
@@ -709,9 +728,18 @@ export default {
         this.combinedTerminalPanelResizeObserver = null;
         this.combinedTerminalPanelResizeAnchor = null;
         window.removeEventListener("resize", this.updateWindowWidth);
+        window.removeEventListener("scroll", this.onScroll);
         window.removeEventListener("keydown", this.handleGlobalTerminalShortcut);
     },
     methods: {
+        onScroll() {
+            if (window.top.scrollY <= 133) {
+                this.windowTop = window.top.scrollY;
+            } else {
+                this.windowTop = 133;
+            }
+        },
+
         updateWindowWidth() {
             this.windowWidth = window.innerWidth;
             this.scheduleCombinedTerminalPanelBoundsUpdate();
@@ -1307,7 +1335,10 @@ export default {
 .compose-details-pane {
     flex: 0 0 auto;
     min-width: 0;
+    overflow-y: auto;
     padding-left: 12px;
+    position: sticky;
+    top: 10px;
 }
 
 .compose-details-section {
@@ -1482,7 +1513,10 @@ export default {
     }
 
     .compose-details-pane {
+        height: auto !important;
+        overflow-y: visible;
         padding-left: 0;
+        position: static;
         width: auto !important;
     }
 
@@ -1536,7 +1570,10 @@ export default {
     }
 
     .compose-details-pane {
+        height: auto !important;
+        overflow-y: visible;
         padding-left: 0;
+        position: static;
         width: auto !important;
     }
 

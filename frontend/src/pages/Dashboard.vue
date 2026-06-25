@@ -6,6 +6,7 @@
                 class="stack-pane"
                 :style="{ width: `${stackPaneWidth}px` }"
             >
+                <h2 class="stack-pane-title mb-3">Stacks</h2>
                 <div>
                     <router-link to="/compose" class="btn btn-primary mb-3"><font-awesome-icon icon="plus" /> {{ $t("compose") }}</router-link>
                 </div>
@@ -180,6 +181,11 @@ export default {
     flex: 0 0 auto;
     min-width: 0;
     padding-right: 12px;
+}
+
+.stack-pane-title {
+    font-size: 1.5rem;
+    line-height: 1.2;
 }
 
 .dashboard-main {

@@ -15,11 +15,11 @@ grep -q 'compose-workspace' "$compose_vue" \
 grep -q 'compose-terminal-panel' "$compose_vue" \
     || fail "Combined terminal must render in a dedicated bottom panel"
 
-grep -q 'ref="composeEditorPane"' "$compose_vue" \
-    || fail "Bottom terminal panel must anchor to the YAML editor pane"
+grep -q 'ref="composeYamlEditor"' "$compose_vue" \
+    || fail "Bottom terminal panel must anchor to the YAML editor surface"
 
-grep -q 'this.$refs.composeEditorPane' "$compose_vue" \
-    || fail "Bottom terminal panel bounds must be measured from the YAML editor pane"
+grep -q 'this.$refs.composeYamlEditor || this.$refs.composeEditorPane' "$compose_vue" \
+    || fail "Bottom terminal panel bounds must prefer the YAML editor surface before the pane fallback"
 
 grep -q 'new ResizeObserver' "$compose_vue" \
     || fail "Bottom terminal panel must observe editor pane width changes"

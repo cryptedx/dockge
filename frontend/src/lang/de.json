@@ -104,7 +104,7 @@
     "connecting…": "Verbindungsaufbau zum Socket Server…",
     "newUpdate": "Neues Update",
     "dockgeAgent": "Dockge Agent | Dockge Agenten",
-    "currentEndpoint": "Aktuell",
+    "currentEndpoint": "Diese Instanz",
     "dockgeURL": "Dockge URL (z. B. http://127.0.0.1:5001)",
     "agentOnline": "Online",
     "agentOffline": "Offline",

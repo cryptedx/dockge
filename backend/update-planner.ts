@@ -26,6 +26,7 @@ interface RegistryResponse {
 
 export type RegistryFetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<RegistryResponse>;
 
+const REGISTRY_FETCH_TIMEOUT_MS = 15_000;
 const MANIFEST_ACCEPT = [
     "application/vnd.docker.distribution.manifest.list.v2+json",
     "application/vnd.oci.image.index.v1+json",
@@ -122,18 +123,36 @@ async function defaultFetch(url: string, init?: { headers?: Record<string, strin
     return fetch(url, init) as Promise<RegistryResponse>;
 }
 
-async function requestManifest(ref: NormalizedImageReference, fetcher: RegistryFetch, token?: string) {
+async function fetchWithTimeout(fetcher: RegistryFetch, url: string, init: { headers?: Record<string, string> } | undefined, timeoutMs: number, image: string) {
+    if (timeoutMs <= 0) {
+        return fetcher(url, init);
+    }
+
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    return Promise.race([
+        fetcher(url, init),
+        new Promise<never>((_, reject) => {
+            timeout = setTimeout(() => reject(new Error(`Timed out checking ${image} after ${timeoutMs}ms`)), timeoutMs);
+        }),
+    ]).finally(() => {
+        if (timeout) {
+            clearTimeout(timeout);
+        }
+    });
+}
+
+async function requestManifest(ref: NormalizedImageReference, fetcher: RegistryFetch, token?: string, timeoutMs = REGISTRY_FETCH_TIMEOUT_MS) {
     const headers: Record<string, string> = {
         Accept: MANIFEST_ACCEPT,
     };
     if (token) {
         headers.Authorization = `Bearer ${token}`;
     }
-    return fetcher(ref.manifestUrl, { headers });
+    return fetchWithTimeout(fetcher, ref.manifestUrl, { headers }, timeoutMs, ref.original);
 }
 
-export async function fetchManifestDigest(ref: NormalizedImageReference, fetcher: RegistryFetch = defaultFetch): Promise<string | undefined> {
-    let response = await requestManifest(ref, fetcher);
+export async function fetchManifestDigest(ref: NormalizedImageReference, fetcher: RegistryFetch = defaultFetch, timeoutMs = REGISTRY_FETCH_TIMEOUT_MS): Promise<string | undefined> {
+    let response = await requestManifest(ref, fetcher, undefined, timeoutMs);
 
     if (response.status === 401) {
         const authHeader = response.headers.get("www-authenticate");
@@ -152,7 +171,7 @@ export async function fetchManifestDigest(ref: NormalizedImageReference, fetcher
         }
         tokenUrl.searchParams.set("scope", challenge.scope ?? `repository:${ref.repository}:pull`);
 
-        const tokenResponse = await fetcher(tokenUrl.toString());
+        const tokenResponse = await fetchWithTimeout(fetcher, tokenUrl.toString(), undefined, timeoutMs, ref.original);
         if (!tokenResponse.ok) {
             throw new Error(`Failed to get registry token for ${ref.original}: ${await tokenResponse.text()}`);
         }
@@ -163,7 +182,7 @@ export async function fetchManifestDigest(ref: NormalizedImageReference, fetcher
             throw new Error(`Registry token response for ${ref.original} did not include a token`);
         }
 
-        response = await requestManifest(ref, fetcher, token);
+        response = await requestManifest(ref, fetcher, token, timeoutMs);
     }
 
     if (!response.ok) {

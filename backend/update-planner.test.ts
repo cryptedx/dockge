@@ -125,3 +125,8 @@ const digest = await fetchManifestDigest(dockerHub, async (url, init) => {
 
 assert.equal(digest, "sha256:remote");
 assert.equal(calls[2].authorization, "Bearer registry-token");
+
+await assert.rejects(
+    () => fetchManifestDigest(normalizeImageReference("ghcr.io/example/slow:latest"), () => new Promise(() => {}), 1),
+    /Timed out checking ghcr\.io\/example\/slow:latest after 1ms/
+);

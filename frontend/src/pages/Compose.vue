@@ -142,188 +142,186 @@
                         v-show="!composeFocusMode"
                         id="compose-details-pane"
                         class="compose-details-pane"
-                        :style="{ width: `${detailsPaneWidth}px` }"
+                        :style="detailsPaneStyle"
                     >
-                        <div class="compose-details-sticky" :style="detailsPaneStickyStyle">
-                            <div v-if="isAdd" class="compose-details-section">
-                                <h4 class="mb-3">{{ $t("general") }}</h4>
-                                <div class="shadow-box big-padding mb-3">
-                                    <div>
-                                        <label for="stack-name" class="form-label">{{ $t("stackName") }}</label>
-                                        <input
-                                            id="stack-name"
-                                            v-model="stack.name"
-                                            type="text"
-                                            name="stack-name"
-                                            class="form-control"
-                                            autocomplete="off"
-                                            required
-                                            @blur="stackNameToLowercase"
-                                        >
-                                        <div class="form-text">{{ $t("Lowercase only") }}</div>
-                                    </div>
-
-                                    <div class="mt-3">
-                                        <label for="dockge-agent" class="form-label">{{ $t("dockgeAgent") }}</label>
-                                        <select id="dockge-agent" v-model="stack.endpoint" name="dockge-agent" class="form-select">
-                                            <option v-for="(agent, agentEndpoint) in $root.agentList" :key="agentEndpoint" :value="agentEndpoint" :disabled="$root.agentStatusList[agentEndpoint] != 'online'">
-                                                ({{ $root.agentStatusList[agentEndpoint] }}) {{ (agent.name !== '') ? agent.name : agent.url || $t("Current") }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div v-if="!isEditMode && !isAdd" class="compose-details-tabs mb-3" role="tablist" aria-label="Stack details">
-                                <button
-                                    class="btn btn-sm"
-                                    :class="detailsTab === 'containers' ? 'btn-primary' : 'btn-normal'"
-                                    type="button"
-                                    role="tab"
-                                    :aria-selected="detailsTab === 'containers'"
-                                    @click="detailsTab = 'containers'"
-                                >
-                                    {{ $tc("container", 2) }}
-                                </button>
-                                <button
-                                    class="btn btn-sm"
-                                    :class="detailsTab === 'updates' ? 'btn-primary' : 'btn-normal'"
-                                    type="button"
-                                    role="tab"
-                                    :aria-selected="detailsTab === 'updates'"
-                                    @click="detailsTab = 'updates'"
-                                >
-                                    <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
-                                    Updates
-                                    <span v-if="updateableServices.length > 0" class="badge bg-danger ms-1">{{ updateableServices.length }}</span>
-                                </button>
-                            </div>
-
-                            <div v-if="isEditMode || detailsTab === 'containers'" class="compose-details-section">
-                                <h4 class="mb-3">{{ $tc("container", 2) }}</h4>
-
-                                <div v-if="isEditMode" class="input-group mb-3">
-                                    <label for="new-container-name" class="visually-hidden">{{ $t("addContainer") }}</label>
+                        <div v-if="isAdd" class="compose-details-section">
+                            <h4 class="mb-3">{{ $t("general") }}</h4>
+                            <div class="shadow-box big-padding mb-3">
+                                <div>
+                                    <label for="stack-name" class="form-label">{{ $t("stackName") }}</label>
                                     <input
-                                        id="new-container-name"
-                                        v-model="newContainerName"
-                                        name="new-container-name"
-                                        :placeholder="$t(`New Container Name…`)"
+                                        id="stack-name"
+                                        v-model="stack.name"
+                                        type="text"
+                                        name="stack-name"
                                         class="form-control"
                                         autocomplete="off"
-                                        @keyup.enter="addContainer"
-                                    />
-                                    <button class="btn btn-primary" type="button" @click="addContainer">
-                                        {{ $t("addContainer") }}
-                                    </button>
-                                </div>
-
-                                <div ref="containerList">
-                                    <Container
-                                        v-for="(service, name) in jsonConfig.services"
-                                        :key="name"
-                                        :name="name"
-                                        :is-edit-mode="isEditMode"
-                                        :first="name === Object.keys(jsonConfig.services)[0]"
-                                        :serviceStatus="serviceStatusList[name]"
-                                        :dockerStats="dockerStats"
-                                        @start-service="startService"
-                                        @stop-service="stopService"
-                                        @restart-service="restartService"
-                                    />
-                                </div>
-                            </div>
-
-                            <div v-if="!isEditMode && !isAdd && detailsTab === 'updates'" class="compose-details-section">
-                                <div class="compose-updates-header mb-3">
-                                    <h4 class="mb-0">Updates</h4>
-                                    <button class="btn btn-normal btn-sm" type="button" :disabled="updateScanRunning || processing" @click="scanStackUpdates">
-                                        <font-awesome-icon icon="search" class="me-1" />
-                                        {{ updateScanRunning ? "Scanning…" : "Scan" }}
-                                    </button>
-                                </div>
-
-                                <div class="shadow-box big-padding mb-3 update-panel">
-                                    <div v-if="!updateCheck && !updateScanRunning" class="update-empty">
-                                        Scan this stack to compare local image digests with registry manifests.
-                                    </div>
-
-                                    <div v-if="updateScanRunning" class="update-empty" role="status" aria-live="polite">
-                                        Checking registry manifests…
-                                    </div>
-
-                                    <div v-if="updateCheck && serviceUpdates.length === 0" class="update-empty">
-                                        No image-backed services found.
-                                    </div>
-
-                                    <div v-for="service in serviceUpdates" :key="service.service" class="update-row">
-                                        <label class="update-check">
-                                            <input
-                                                v-model="selectedUpdates[service.service]"
-                                                class="form-check-input"
-                                                type="checkbox"
-                                                :name="`update-${service.service}`"
-                                                :aria-label="`Update ${service.service}`"
-                                                :disabled="service.status !== 'update-available' || processing"
-                                            />
-                                        </label>
-                                        <div class="update-copy">
-                                            <div class="update-title">
-                                                <span>{{ service.service }}</span>
-                                                <span class="badge" :class="updateBadgeClass(service.status)">{{ updateStatusLabel(service.status) }}</span>
-                                            </div>
-                                            <div class="update-image">{{ service.image }}</div>
-                                            <div v-if="service.reason" class="update-reason">{{ service.reason }}</div>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        class="btn btn-primary w-100 mt-3"
-                                        type="button"
-                                        :disabled="selectedUpdateCount === 0 || processing"
-                                        @click="applySelectedUpdates"
+                                        required
+                                        @blur="stackNameToLowercase"
                                     >
-                                        <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
-                                        Update Selected
-                                    </button>
+                                    <div class="form-text">{{ $t("Lowercase only") }}</div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <label for="dockge-agent" class="form-label">{{ $t("dockgeAgent") }}</label>
+                                    <select id="dockge-agent" v-model="stack.endpoint" name="dockge-agent" class="form-select">
+                                        <option v-for="(agent, agentEndpoint) in $root.agentList" :key="agentEndpoint" :value="agentEndpoint" :disabled="$root.agentStatusList[agentEndpoint] != 'online'">
+                                            ({{ $root.agentStatusList[agentEndpoint] }}) {{ (agent.name !== '') ? agent.name : agent.url || $t("Current") }}
+                                        </option>
+                                    </select>
                                 </div>
                             </div>
+                        </div>
 
-                            <div v-if="isEditMode" class="compose-details-section">
-                                <h4 class="mb-3">{{ $t("extra") }}</h4>
-                                <div class="shadow-box big-padding mb-3">
-                                    <div class="mb-4">
-                                        <label class="form-label">
-                                            {{ $tc("url", 2) }}
-                                        </label>
-                                        <ArrayInput name="urls" :display-name="$t('url')" placeholder="https://" object-type="x-dockge" />
+                        <div v-if="!isEditMode && !isAdd" class="compose-details-tabs mb-3" role="tablist" aria-label="Stack details">
+                            <button
+                                class="btn btn-sm"
+                                :class="detailsTab === 'containers' ? 'btn-primary' : 'btn-normal'"
+                                type="button"
+                                role="tab"
+                                :aria-selected="detailsTab === 'containers'"
+                                @click="detailsTab = 'containers'"
+                            >
+                                {{ $tc("container", 2) }}
+                            </button>
+                            <button
+                                class="btn btn-sm"
+                                :class="detailsTab === 'updates' ? 'btn-primary' : 'btn-normal'"
+                                type="button"
+                                role="tab"
+                                :aria-selected="detailsTab === 'updates'"
+                                @click="detailsTab = 'updates'"
+                            >
+                                <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
+                                Updates
+                                <span v-if="updateableServices.length > 0" class="badge bg-danger ms-1">{{ updateableServices.length }}</span>
+                            </button>
+                        </div>
+
+                        <div v-if="isEditMode || detailsTab === 'containers'" class="compose-details-section">
+                            <h4 class="mb-3">{{ $tc("container", 2) }}</h4>
+
+                            <div v-if="isEditMode" class="input-group mb-3">
+                                <label for="new-container-name" class="visually-hidden">{{ $t("addContainer") }}</label>
+                                <input
+                                    id="new-container-name"
+                                    v-model="newContainerName"
+                                    name="new-container-name"
+                                    :placeholder="$t(`New Container Name…`)"
+                                    class="form-control"
+                                    autocomplete="off"
+                                    @keyup.enter="addContainer"
+                                />
+                                <button class="btn btn-primary" type="button" @click="addContainer">
+                                    {{ $t("addContainer") }}
+                                </button>
+                            </div>
+
+                            <div ref="containerList">
+                                <Container
+                                    v-for="(service, name) in jsonConfig.services"
+                                    :key="name"
+                                    :name="name"
+                                    :is-edit-mode="isEditMode"
+                                    :first="name === Object.keys(jsonConfig.services)[0]"
+                                    :serviceStatus="serviceStatusList[name]"
+                                    :dockerStats="dockerStats"
+                                    @start-service="startService"
+                                    @stop-service="stopService"
+                                    @restart-service="restartService"
+                                />
+                            </div>
+                        </div>
+
+                        <div v-if="!isEditMode && !isAdd && detailsTab === 'updates'" class="compose-details-section">
+                            <div class="compose-updates-header mb-3">
+                                <h4 class="mb-0">Updates</h4>
+                                <button class="btn btn-normal btn-sm" type="button" :disabled="updateScanRunning || processing" @click="scanStackUpdates">
+                                    <font-awesome-icon icon="search" class="me-1" />
+                                    {{ updateScanRunning ? "Scanning…" : "Scan" }}
+                                </button>
+                            </div>
+
+                            <div class="shadow-box big-padding mb-3 update-panel">
+                                <div v-if="!updateCheck && !updateScanRunning" class="update-empty">
+                                    Scan this stack to compare local image digests with registry manifests.
+                                </div>
+
+                                <div v-if="updateScanRunning" class="update-empty" role="status" aria-live="polite">
+                                    Checking registry manifests…
+                                </div>
+
+                                <div v-if="updateCheck && serviceUpdates.length === 0" class="update-empty">
+                                    No image-backed services found.
+                                </div>
+
+                                <div v-for="service in serviceUpdates" :key="service.service" class="update-row">
+                                    <label class="update-check">
+                                        <input
+                                            v-model="selectedUpdates[service.service]"
+                                            class="form-check-input"
+                                            type="checkbox"
+                                            :name="`update-${service.service}`"
+                                            :aria-label="`Update ${service.service}`"
+                                            :disabled="service.status !== 'update-available' || processing"
+                                        />
+                                    </label>
+                                    <div class="update-copy">
+                                        <div class="update-title">
+                                            <span>{{ service.service }}</span>
+                                            <span class="badge" :class="updateBadgeClass(service.status)">{{ updateStatusLabel(service.status) }}</span>
+                                        </div>
+                                        <div class="update-image">{{ service.image }}</div>
+                                        <div v-if="service.reason" class="update-reason">{{ service.reason }}</div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div v-if="isEditMode" class="compose-details-section">
-                                <h4 class="mb-3">.env</h4>
-                                <div class="shadow-box mb-3 editor-box compose-env-editor" :class="{ 'edit-mode' : isEditMode }">
-                                    <code-mirror
-                                        ref="envEditor"
-                                        v-model="stack.composeENV"
-                                        :extensions="extensionsEnv"
-                                        minimal
-                                        wrap="true"
-                                        dark="true"
-                                        tab="true"
-                                        :disabled="!isEditMode"
-                                        :hasFocus="editorFocus"
-                                        @change="yamlCodeChange"
-                                    />
+                                <button
+                                    class="btn btn-primary w-100 mt-3"
+                                    type="button"
+                                    :disabled="selectedUpdateCount === 0 || processing"
+                                    @click="applySelectedUpdates"
+                                >
+                                    <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
+                                    Update Selected
+                                </button>
+                            </div>
+                        </div>
+
+                        <div v-if="isEditMode" class="compose-details-section">
+                            <h4 class="mb-3">{{ $t("extra") }}</h4>
+                            <div class="shadow-box big-padding mb-3">
+                                <div class="mb-4">
+                                    <label class="form-label">
+                                        {{ $tc("url", 2) }}
+                                    </label>
+                                    <ArrayInput name="urls" :display-name="$t('url')" placeholder="https://" object-type="x-dockge" />
                                 </div>
                             </div>
+                        </div>
 
-                            <div v-if="isEditMode" class="compose-details-section">
-                                <h4 class="mb-3">{{ $tc("network", 2) }}</h4>
-                                <div class="shadow-box big-padding mb-3">
-                                    <NetworkInput />
-                                </div>
+                        <div v-if="isEditMode" class="compose-details-section">
+                            <h4 class="mb-3">.env</h4>
+                            <div class="shadow-box mb-3 editor-box compose-env-editor" :class="{ 'edit-mode' : isEditMode }">
+                                <code-mirror
+                                    ref="envEditor"
+                                    v-model="stack.composeENV"
+                                    :extensions="extensionsEnv"
+                                    minimal
+                                    wrap="true"
+                                    dark="true"
+                                    tab="true"
+                                    :disabled="!isEditMode"
+                                    :hasFocus="editorFocus"
+                                    @change="yamlCodeChange"
+                                />
+                            </div>
+                        </div>
+
+                        <div v-if="isEditMode" class="compose-details-section">
+                            <h4 class="mb-3">{{ $tc("network", 2) }}</h4>
+                            <div class="shadow-box big-padding mb-3">
+                                <NetworkInput />
                             </div>
                         </div>
                     </aside>
@@ -515,16 +513,20 @@ export default {
             return !this.isEditMode && !this.composeFocusMode;
         },
 
-        detailsPaneStickyStyle() {
+        detailsPaneStyle() {
+            const style = {
+                width: `${this.detailsPaneWidth}px`,
+            };
+
             if (this.windowWidth > 550) {
                 return {
+                    ...style,
                     height: `calc(100vh - 160px + ${this.windowTop}px)`,
                 };
             }
 
-            return {
-                height: "calc(100vh - 160px)",
-            };
+            style.height = "calc(100vh - 160px)";
+            return style;
         },
 
         endpointDisplay() {
@@ -1333,11 +1335,8 @@ export default {
 .compose-details-pane {
     flex: 0 0 auto;
     min-width: 0;
-    padding-left: 12px;
-}
-
-.compose-details-sticky {
     overflow-y: auto;
+    padding-left: 12px;
     position: sticky;
     top: 10px;
 }
@@ -1514,14 +1513,11 @@ export default {
     }
 
     .compose-details-pane {
-        padding-left: 0;
-        width: auto !important;
-    }
-
-    .compose-details-sticky {
         height: auto !important;
         overflow-y: visible;
+        padding-left: 0;
         position: static;
+        width: auto !important;
     }
 
     .pane-resizer {
@@ -1574,14 +1570,11 @@ export default {
     }
 
     .compose-details-pane {
-        padding-left: 0;
-        width: auto !important;
-    }
-
-    .compose-details-sticky {
         height: auto !important;
         overflow-y: visible;
+        padding-left: 0;
         position: static;
+        width: auto !important;
     }
 
     .pane-resizer {

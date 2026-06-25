@@ -238,7 +238,7 @@
                                 <h4 class="mb-0">Updates</h4>
                                 <button class="btn btn-normal btn-sm" type="button" :disabled="updateScanRunning || processing" @click="scanStackUpdates">
                                     <font-awesome-icon icon="search" class="me-1" />
-                                    {{ updateScanRunning ? "Scanning" : "Scan" }}
+                                    {{ updateScanRunning ? "Scanning…" : "Scan" }}
                                 </button>
                             </div>
 
@@ -247,8 +247,8 @@
                                     Scan this stack to compare local image digests with registry manifests.
                                 </div>
 
-                                <div v-if="updateScanRunning" class="update-empty">
-                                    Checking registry manifests...
+                                <div v-if="updateScanRunning" class="update-empty" role="status" aria-live="polite">
+                                    Checking registry manifests…
                                 </div>
 
                                 <div v-if="updateCheck && serviceUpdates.length === 0" class="update-empty">
@@ -261,6 +261,8 @@
                                             v-model="selectedUpdates[service.service]"
                                             class="form-check-input"
                                             type="checkbox"
+                                            :name="`update-${service.service}`"
+                                            :aria-label="`Update ${service.service}`"
                                             :disabled="service.status !== 'update-available' || processing"
                                         />
                                     </label>
@@ -281,7 +283,7 @@
                                     @click="applySelectedUpdates"
                                 >
                                     <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
-                                    Update selected
+                                    Update Selected
                                 </button>
                             </div>
                         </div>

@@ -9,7 +9,7 @@
                 <div class="maintenance-actions">
                     <button class="btn btn-primary" type="button" :disabled="scanning || queueRunning" @click="scanAllAgents">
                         <font-awesome-icon icon="search" class="me-1" />
-                        {{ scanning ? "Scanning" : "Scan all agents" }}
+                        {{ scanning ? "Scanning…" : "Scan All Agents" }}
                     </button>
                     <button v-if="scanning" class="btn btn-danger" type="button" @click="stopScan">
                         Stop
@@ -26,17 +26,17 @@
 
             <div class="shadow-box big-padding mb-3 maintenance-toolbar">
                 <label class="form-check">
-                    <input v-model="updatesOnly" class="form-check-input" type="checkbox" />
-                    <span class="form-check-label">Updates only</span>
+                    <input v-model="updatesOnly" class="form-check-input" type="checkbox" name="updates-only" />
+                    <span class="form-check-label">Updates Only</span>
                 </label>
-                <select v-model="agentFilter" class="form-select">
-                    <option value="">All agents</option>
+                <select v-model="agentFilter" class="form-select" name="agent-filter" aria-label="Agent Filter">
+                    <option value="">All Agents</option>
                     <option v-for="agent in agentOptions" :key="agent.endpoint" :value="agent.endpoint">{{ agent.name }}</option>
                 </select>
-                <input v-model="searchText" class="form-control" type="search" placeholder="Search stack, service, image" />
+                <input v-model="searchText" class="form-control" type="search" name="maintenance-search" autocomplete="off" aria-label="Search stacks, services, and images" placeholder="Search stack, service, image…" />
             </div>
 
-            <div v-if="scanning" class="shadow-box big-padding mb-3 maintenance-progress">
+            <div v-if="scanning" class="shadow-box big-padding mb-3 maintenance-progress" role="status" aria-live="polite">
                 <div class="maintenance-progress-head">
                     <strong>{{ scanProgressTitle }}</strong>
                     <span>{{ scanPercent }}%</span>
@@ -135,11 +135,11 @@
                 </div>
                 <button class="btn btn-primary" type="button" :disabled="queueRunning" @click="confirmUpdate = true">
                     <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
-                    Update selected
+                    Update Selected
                 </button>
             </div>
 
-            <BModal v-model="confirmUpdate" title="Confirm updates" okTitle="Update selected" okVariant="primary" @ok="startUpdateQueue">
+            <BModal v-model="confirmUpdate" title="Confirm Updates" okTitle="Update Selected" okVariant="primary" @ok="startUpdateQueue">
                 Update {{ selectedCount }} services on {{ selectedStackCount }} stacks across {{ selectedAgentCount }} agents?
             </BModal>
         </div>

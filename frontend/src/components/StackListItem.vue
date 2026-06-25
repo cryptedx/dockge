@@ -82,7 +82,7 @@ export default {
         margin-top: -4px;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 12px;
         min-width: 0;
     }
     .stack-name {

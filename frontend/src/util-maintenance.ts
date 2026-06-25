@@ -5,6 +5,8 @@ export interface MaintenanceService {
     service: string;
     image: string;
     status: MaintenanceStatus;
+    localDigests?: string[];
+    remoteDigest?: string;
     reason?: string;
 }
 
@@ -46,6 +48,24 @@ export const MAINTENANCE_SNAPSHOT_UPDATED_EVENT = "dockge.maintenance.snapshotUp
 
 export function maintenanceKey(endpoint: string, stackName: string, serviceName: string) {
     return `${endpoint}_${stackName}_${serviceName}`;
+}
+
+function imageWithDigest(image: string, digest: string) {
+    return `${image.split("@")[0]}@${digest}`;
+}
+
+export function getMaintenanceDisplayImage(service: MaintenanceService) {
+    if (service.status === "update-available" && service.remoteDigest) {
+        return imageWithDigest(service.image, service.remoteDigest);
+    }
+    return service.image;
+}
+
+export function getMaintenanceOldImage(service: MaintenanceService) {
+    if (service.status !== "update-available" || !service.localDigests?.[0]) {
+        return "";
+    }
+    return imageWithDigest(service.image, service.localDigests[0]);
 }
 
 export function flattenMaintenanceScan(scans: MaintenanceScan[]): MaintenanceRow[] {

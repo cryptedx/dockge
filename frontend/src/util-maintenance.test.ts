@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import {
     buildMaintenanceQueue,
     flattenMaintenanceScan,
+    getMaintenanceDisplayImage,
+    getMaintenanceOldImage,
     getMaintenanceSummary,
     getMaintenanceProgressPercent,
     getMaintenanceSnapshotStack,
@@ -23,6 +25,8 @@ const scans = [
                         service: "plex",
                         image: "plex:latest",
                         status: "update-available",
+                        localDigests: [ "sha256:old" ],
+                        remoteDigest: "sha256:new",
                     },
                     {
                         service: "db",
@@ -68,6 +72,9 @@ const scans = [
 const rows = flattenMaintenanceScan(scans);
 assert.equal(rows.length, 4);
 assert.equal(rows[0].key, "_media_plex");
+assert.equal(getMaintenanceDisplayImage(rows[0]), "plex:latest@sha256:new");
+assert.equal(getMaintenanceOldImage(rows[0]), "plex:latest@sha256:old");
+assert.equal(getMaintenanceOldImage(rows[1]), "");
 assert.equal(rows[2].key, "tcp://agent:5001_tools_wiki");
 assert.equal(rows[3].selectable, false);
 

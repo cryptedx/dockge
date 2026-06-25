@@ -68,6 +68,7 @@
                         <col class="maintenance-col-stack" />
                         <col class="maintenance-col-container" />
                         <col class="maintenance-col-image" />
+                        <col class="maintenance-col-old-image" />
                         <col class="maintenance-col-status" />
                         <col class="maintenance-col-reason" />
                     </colgroup>
@@ -78,16 +79,17 @@
                             <th>Stack</th>
                             <th>Container</th>
                             <th>Image</th>
+                            <th>Old Image</th>
                             <th>Status</th>
                             <th>Reason</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="!scanResults.length && !scanning">
-                            <td colspan="7" class="maintenance-empty">Run a scan to load update status from all agents.</td>
+                            <td colspan="8" class="maintenance-empty">Run a scan to load update status from all agents.</td>
                         </tr>
                         <tr v-if="scanResults.length > 0 && filteredRows.length === 0 && !scanning">
-                            <td colspan="7" class="maintenance-empty">No services match the current filters.</td>
+                            <td colspan="8" class="maintenance-empty">No services match the current filters.</td>
                         </tr>
                         <tr v-for="row in filteredRows" :key="row.key">
                             <td>
@@ -105,7 +107,10 @@
                             <td>{{ row.stackName }}</td>
                             <td>{{ row.service }}</td>
                             <td class="maintenance-image">
-                                <span :title="row.image">{{ row.image }}</span>
+                                <span :title="getMaintenanceDisplayImage(row)">{{ getMaintenanceDisplayImage(row) }}</span>
+                            </td>
+                            <td class="maintenance-image">
+                                <span :title="getMaintenanceOldImage(row)">{{ getMaintenanceOldImage(row) }}</span>
                             </td>
                             <td><span class="badge" :class="badgeClass(row.status)">{{ statusLabel(row.status) }}</span></td>
                             <td class="maintenance-reason">{{ row.reason || "" }}</td>
@@ -154,6 +159,8 @@ import { BModal } from "bootstrap-vue-next";
 import {
     buildMaintenanceQueue,
     flattenMaintenanceScan,
+    getMaintenanceDisplayImage,
+    getMaintenanceOldImage,
     getMaintenanceProgressPercent,
     getMaintenanceSummary,
     isCurrentMaintenanceScan,
@@ -419,6 +426,8 @@ export default {
                 .filter((entry) => entry[1]?.isManagedByDockge !== false)
                 .map((entry) => entry[0]);
         },
+        getMaintenanceDisplayImage,
+        getMaintenanceOldImage,
         selectAllUpdateable() {
             const selected = {};
             for (const row of this.rows) {
@@ -573,7 +582,7 @@ export default {
 }
 
 .maintenance-table {
-    min-width: 1120px;
+    min-width: 1360px;
     table-layout: fixed;
     --bs-table-bg: transparent;
     --bs-table-color: inherit;
@@ -604,7 +613,8 @@ export default {
     width: 12%;
 }
 
-.maintenance-col-image {
+.maintenance-col-image,
+.maintenance-col-old-image {
     width: auto;
 }
 

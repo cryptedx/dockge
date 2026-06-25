@@ -8,3 +8,5 @@ assert.match(source, /if \(clearQueue\) \{\s+this\.queue = \[\];\s+\}/);
 assert.doesNotMatch(source, /this\.scanAllAgents\(false\);/);
 assert.match(source, /queueProgressLabel\(\)/);
 assert.match(source, /this\.markJobServicesCurrent\(nextJob\);/);
+assert.match(source, /<th>Old Image<\/th>/);
+assert.match(source, /getMaintenanceOldImage\(row\)/);

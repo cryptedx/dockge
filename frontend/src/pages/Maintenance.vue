@@ -275,11 +275,13 @@ export default {
         this.restoreSnapshot();
     },
     methods: {
-        scanAllAgents() {
+        scanAllAgents(clearQueue = true) {
             this.scanning = true;
             this.scanResults = [];
             this.selected = {};
-            this.queue = [];
+            if (clearQueue) {
+                this.queue = [];
+            }
             this.scanDone = 0;
             this.scanCurrentAgent = "";
             this.scanCurrentStack = "";
@@ -420,7 +422,7 @@ export default {
             const nextJob = this.queue.find((job) => job.status === "queued");
             if (!nextJob) {
                 this.queueRunning = false;
-                this.scanAllAgents();
+                this.scanAllAgents(false);
                 return;
             }
 

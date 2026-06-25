@@ -3,7 +3,7 @@ import {
     buildMaintenanceQueue,
     flattenMaintenanceScan,
     getMaintenanceDisplayImage,
-    getMaintenanceOldImage,
+    getMaintenanceImageAge,
     getMaintenanceSummary,
     getMaintenanceProgressPercent,
     getMaintenanceSnapshotStack,
@@ -27,6 +27,7 @@ const scans = [
                         status: "update-available",
                         localDigests: [ "sha256:old" ],
                         remoteDigest: "sha256:new",
+                        remoteCreatedAt: "2026-06-24T12:00:00Z",
                     },
                     {
                         service: "db",
@@ -73,8 +74,8 @@ const rows = flattenMaintenanceScan(scans);
 assert.equal(rows.length, 4);
 assert.equal(rows[0].key, "_media_plex");
 assert.equal(getMaintenanceDisplayImage(rows[0]), "plex:latest@sha256:new");
-assert.equal(getMaintenanceOldImage(rows[0]), "plex:latest@sha256:old");
-assert.equal(getMaintenanceOldImage(rows[1]), "");
+assert.equal(getMaintenanceImageAge(rows[0], Date.parse("2026-06-25T12:00:00Z")), "24h");
+assert.equal(getMaintenanceImageAge(rows[1], Date.parse("2026-06-25T12:00:00Z")), "");
 assert.equal(rows[2].key, "tcp://agent:5001_tools_wiki");
 assert.equal(rows[3].selectable, false);
 

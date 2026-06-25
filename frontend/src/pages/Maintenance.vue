@@ -68,7 +68,7 @@
                         <col class="maintenance-col-stack" />
                         <col class="maintenance-col-container" />
                         <col class="maintenance-col-image" />
-                        <col class="maintenance-col-old-image" />
+                        <col class="maintenance-col-image-age" />
                         <col class="maintenance-col-status" />
                         <col class="maintenance-col-reason" />
                     </colgroup>
@@ -79,7 +79,7 @@
                             <th>Stack</th>
                             <th>Container</th>
                             <th>Image</th>
-                            <th>Old Image</th>
+                            <th>New Image Age</th>
                             <th>Status</th>
                             <th>Reason</th>
                         </tr>
@@ -109,8 +109,8 @@
                             <td class="maintenance-image">
                                 <span :title="getMaintenanceDisplayImage(row)">{{ getMaintenanceDisplayImage(row) }}</span>
                             </td>
-                            <td class="maintenance-image">
-                                <span :title="getMaintenanceOldImage(row)">{{ getMaintenanceOldImage(row) }}</span>
+                            <td class="maintenance-image-age">
+                                <span :title="row.remoteCreatedAt || ''">{{ getMaintenanceImageAge(row) }}</span>
                             </td>
                             <td><span class="badge" :class="badgeClass(row.status)">{{ statusLabel(row.status) }}</span></td>
                             <td class="maintenance-reason">{{ row.reason || "" }}</td>
@@ -160,7 +160,7 @@ import {
     buildMaintenanceQueue,
     flattenMaintenanceScan,
     getMaintenanceDisplayImage,
-    getMaintenanceOldImage,
+    getMaintenanceImageAge,
     getMaintenanceProgressPercent,
     getMaintenanceSummary,
     isCurrentMaintenanceScan,
@@ -427,7 +427,7 @@ export default {
                 .map((entry) => entry[0]);
         },
         getMaintenanceDisplayImage,
-        getMaintenanceOldImage,
+        getMaintenanceImageAge,
         selectAllUpdateable() {
             const selected = {};
             for (const row of this.rows) {
@@ -613,9 +613,12 @@ export default {
     width: 12%;
 }
 
-.maintenance-col-image,
-.maintenance-col-old-image {
+.maintenance-col-image {
     width: auto;
+}
+
+.maintenance-col-image-age {
+    width: 128px;
 }
 
 .maintenance-col-status {
@@ -657,6 +660,10 @@ export default {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.maintenance-image-age {
     white-space: nowrap;
 }
 

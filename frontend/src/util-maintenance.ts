@@ -7,6 +7,7 @@ export interface MaintenanceService {
     status: MaintenanceStatus;
     localDigests?: string[];
     remoteDigest?: string;
+    remoteCreatedAt?: string;
     reason?: string;
 }
 
@@ -61,11 +62,27 @@ export function getMaintenanceDisplayImage(service: MaintenanceService) {
     return service.image;
 }
 
-export function getMaintenanceOldImage(service: MaintenanceService) {
-    if (service.status !== "update-available" || !service.localDigests?.[0]) {
+export function getMaintenanceImageAge(service: MaintenanceService, now = Date.now()) {
+    if (service.status !== "update-available" || !service.remoteCreatedAt) {
         return "";
     }
-    return imageWithDigest(service.image, service.localDigests[0]);
+
+    const createdAt = Date.parse(service.remoteCreatedAt);
+    if (!Number.isFinite(createdAt)) {
+        return "";
+    }
+
+    const minutes = Math.floor(Math.max(0, now - createdAt) / 60_000);
+    if (minutes < 60) {
+        return `${minutes}m`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 48) {
+        return `${hours}h`;
+    }
+
+    return `${Math.floor(hours / 24)}d`;
 }
 
 export function flattenMaintenanceScan(scans: MaintenanceScan[]): MaintenanceRow[] {

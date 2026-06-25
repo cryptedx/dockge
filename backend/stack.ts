@@ -22,7 +22,7 @@ import { Settings } from "./settings";
 import {
     compareDigests,
     extractComposeImages,
-    fetchManifestDigest,
+    fetchManifestInfo,
     normalizeImageReference,
     parseRepoDigests,
     updatePinnedComposeImageDigests,
@@ -37,6 +37,7 @@ export interface StackUpdateService {
     status: UpdateState;
     localDigests: string[];
     remoteDigest?: string;
+    remoteCreatedAt?: string;
     reason?: string;
 }
 
@@ -498,13 +499,14 @@ export class Stack {
         for (const service of services) {
             try {
                 const localDigests = await this.getLocalImageDigests(service.image);
-                const remoteDigest = await fetchManifestDigest(normalizeImageReference(service.image));
-                const status = compareDigests(localDigests, remoteDigest);
+                const remote = await fetchManifestInfo(normalizeImageReference(service.image));
+                const status = compareDigests(localDigests, remote.digest);
                 results.push({
                     ...service,
                     status,
                     localDigests,
-                    remoteDigest,
+                    remoteDigest: remote.digest,
+                    remoteCreatedAt: remote.createdAt,
                     reason: status === "unknown" ? "No local repo digest found" : undefined,
                 });
             } catch (e) {

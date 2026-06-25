@@ -3,6 +3,7 @@ import {
     compareDigests,
     extractComposeImages,
     fetchManifestDigest,
+    fetchManifestInfo,
     isComposeServiceName,
     normalizeImageReference,
     parseRepoDigests,
@@ -28,6 +29,61 @@ assert.deepEqual(ghcr, {
     manifestUrl: "https://ghcr.io/v2/example/app/manifests/1.2.3",
     authService: undefined,
 });
+
+const manifestInfoCalls: string[] = [];
+const manifestInfo = await fetchManifestInfo(ghcr, async (url) => {
+    manifestInfoCalls.push(url);
+
+    if (url.endsWith("/manifests/1.2.3")) {
+        return {
+            ok: true,
+            status: 200,
+            headers: {
+                get(name: string) {
+                    return name.toLowerCase() === "docker-content-digest" ? "sha256:remote" : null;
+                },
+            },
+            async json() {
+                return {
+                    schemaVersion: 2,
+                    config: {
+                        digest: "sha256:config",
+                    },
+                };
+            },
+            async text() {
+                return "";
+            },
+        };
+    }
+
+    return {
+        ok: true,
+        status: 200,
+        headers: {
+            get() {
+                return null;
+            },
+        },
+        async json() {
+            return {
+                created: "2026-06-24T12:00:00Z",
+            };
+        },
+        async text() {
+            return "";
+        },
+    };
+});
+
+assert.deepEqual(manifestInfo, {
+    digest: "sha256:remote",
+    createdAt: "2026-06-24T12:00:00Z",
+});
+assert.deepEqual(manifestInfoCalls, [
+    "https://ghcr.io/v2/example/app/manifests/1.2.3",
+    "https://ghcr.io/v2/example/app/blobs/sha256:config",
+]);
 
 assert.deepEqual(parseRepoDigests([
     "nginx@sha256:old",

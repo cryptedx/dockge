@@ -28,6 +28,11 @@ interface RegistryResponse {
 
 export type RegistryFetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<RegistryResponse>;
 
+export interface ManifestInfo {
+    digest?: string;
+    createdAt?: string;
+}
+
 const REGISTRY_FETCH_TIMEOUT_MS = 15_000;
 const MANIFEST_ACCEPT = [
     "application/vnd.docker.distribution.manifest.list.v2+json",
@@ -179,53 +184,170 @@ async function fetchWithTimeout(fetcher: RegistryFetch, url: string, init: { hea
     });
 }
 
-async function requestManifest(ref: NormalizedImageReference, fetcher: RegistryFetch, token?: string, timeoutMs = REGISTRY_FETCH_TIMEOUT_MS) {
-    const headers: Record<string, string> = {
-        Accept: MANIFEST_ACCEPT,
-    };
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
+async function fetchRegistryToken(ref: NormalizedImageReference, fetcher: RegistryFetch, authHeader: string, timeoutMs: number) {
+    const challenge = parseBearerChallenge(authHeader);
+    if (!challenge.realm) {
+        throw new Error(`Registry auth challenge for ${ref.original} is missing a realm`);
     }
-    return fetchWithTimeout(fetcher, ref.manifestUrl, { headers }, timeoutMs, ref.original);
+
+    const tokenUrl = new URL(challenge.realm);
+    const service = challenge.service ?? ref.authService;
+    if (service) {
+        tokenUrl.searchParams.set("service", service);
+    }
+    tokenUrl.searchParams.set("scope", challenge.scope ?? `repository:${ref.repository}:pull`);
+
+    const tokenResponse = await fetchWithTimeout(fetcher, tokenUrl.toString(), undefined, timeoutMs, ref.original);
+    if (!tokenResponse.ok) {
+        throw new Error(`Failed to get registry token for ${ref.original}: ${await tokenResponse.text()}`);
+    }
+
+    const tokenBody = await tokenResponse.json() as { token?: string; access_token?: string };
+    const token = tokenBody.token ?? tokenBody.access_token;
+    if (!token) {
+        throw new Error(`Registry token response for ${ref.original} did not include a token`);
+    }
+    return token;
+}
+
+async function requestRegistryResource(ref: NormalizedImageReference, fetcher: RegistryFetch, url: string, headers: Record<string, string>, token: string | undefined, timeoutMs: number) {
+    const requestHeaders = { ...headers };
+    if (token) {
+        requestHeaders.Authorization = `Bearer ${token}`;
+    }
+
+    let response = await fetchWithTimeout(fetcher, url, { headers: requestHeaders }, timeoutMs, ref.original);
+    if (response.status !== 401) {
+        return {
+            response,
+            token,
+        };
+    }
+
+    const authHeader = response.headers.get("www-authenticate");
+    if (!authHeader) {
+        throw new Error(`Registry rejected ${ref.original} without an auth challenge`);
+    }
+
+    const nextToken = await fetchRegistryToken(ref, fetcher, authHeader, timeoutMs);
+    response = await fetchWithTimeout(fetcher, url, {
+        headers: {
+            ...headers,
+            Authorization: `Bearer ${nextToken}`,
+        },
+    }, timeoutMs, ref.original);
+
+    return {
+        response,
+        token: nextToken,
+    };
+}
+
+async function requestManifest(ref: NormalizedImageReference, fetcher: RegistryFetch, token: string | undefined, timeoutMs: number, url = ref.manifestUrl) {
+    return requestRegistryResource(ref, fetcher, url, {
+        Accept: MANIFEST_ACCEPT,
+    }, token, timeoutMs);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
+}
+
+function getString(value: unknown, key: string) {
+    if (!isRecord(value)) {
+        return undefined;
+    }
+    const item = value[key];
+    return typeof item === "string" ? item : undefined;
+}
+
+function getConfigDigest(manifest: unknown) {
+    if (!isRecord(manifest) || !isRecord(manifest.config)) {
+        return undefined;
+    }
+    return getString(manifest.config, "digest");
+}
+
+function dockerArchitecture(arch = process.arch) {
+    if (arch === "x64") {
+        return "amd64";
+    }
+    if (arch === "arm") {
+        return "arm";
+    }
+    return arch;
+}
+
+function selectPlatformManifestDigest(manifest: unknown) {
+    if (!isRecord(manifest) || !Array.isArray(manifest.manifests)) {
+        return undefined;
+    }
+
+    const expectedArch = dockerArchitecture();
+    const manifests = manifest.manifests.filter(isRecord);
+    const match = manifests.find((item) => {
+        const platform = item.platform;
+        return isRecord(platform) && platform.os === "linux" && platform.architecture === expectedArch;
+    }) ?? manifests.find((item) => typeof item.digest === "string");
+
+    return getString(match, "digest");
+}
+
+async function fetchConfigCreatedAt(ref: NormalizedImageReference, fetcher: RegistryFetch, manifest: unknown, token: string | undefined, timeoutMs: number): Promise<string | undefined> {
+    let configDigest = getConfigDigest(manifest);
+    let activeToken = token;
+    const platformManifestDigest = configDigest ? undefined : selectPlatformManifestDigest(manifest);
+
+    if (platformManifestDigest) {
+        try {
+            const manifestUrl = `https://${ref.registry}/v2/${ref.repository}/manifests/${platformManifestDigest}`;
+            const platformManifest = await requestManifest(ref, fetcher, activeToken, timeoutMs, manifestUrl);
+            activeToken = platformManifest.token;
+            if (!platformManifest.response.ok) {
+                return undefined;
+            }
+            configDigest = getConfigDigest(await platformManifest.response.json());
+        } catch {
+            return undefined;
+        }
+    }
+
+    if (!configDigest) {
+        return undefined;
+    }
+
+    try {
+        const configUrl = `https://${ref.registry}/v2/${ref.repository}/blobs/${configDigest}`;
+        const config = await requestRegistryResource(ref, fetcher, configUrl, {}, activeToken, timeoutMs);
+        if (!config.response.ok) {
+            return undefined;
+        }
+        return getString(await config.response.json(), "created");
+    } catch {
+        return undefined;
+    }
+}
+
+export async function fetchManifestInfo(ref: NormalizedImageReference, fetcher: RegistryFetch = defaultFetch, timeoutMs = REGISTRY_FETCH_TIMEOUT_MS): Promise<ManifestInfo> {
+    const manifest = await requestManifest(ref, fetcher, undefined, timeoutMs);
+
+    if (!manifest.response.ok) {
+        throw new Error(`Failed to inspect ${ref.original}: ${await manifest.response.text()}`);
+    }
+
+    const body = await manifest.response.json();
+    return {
+        digest: manifest.response.headers.get("docker-content-digest") ?? undefined,
+        createdAt: await fetchConfigCreatedAt(ref, fetcher, body, manifest.token, timeoutMs),
+    };
 }
 
 export async function fetchManifestDigest(ref: NormalizedImageReference, fetcher: RegistryFetch = defaultFetch, timeoutMs = REGISTRY_FETCH_TIMEOUT_MS): Promise<string | undefined> {
-    let response = await requestManifest(ref, fetcher, undefined, timeoutMs);
+    const manifest = await requestManifest(ref, fetcher, undefined, timeoutMs);
 
-    if (response.status === 401) {
-        const authHeader = response.headers.get("www-authenticate");
-        if (!authHeader) {
-            throw new Error(`Registry rejected ${ref.original} without an auth challenge`);
-        }
-
-        const challenge = parseBearerChallenge(authHeader);
-        if (!challenge.realm) {
-            throw new Error(`Registry auth challenge for ${ref.original} is missing a realm`);
-        }
-
-        const tokenUrl = new URL(challenge.realm);
-        if (challenge.service ?? ref.authService) {
-            tokenUrl.searchParams.set("service", challenge.service ?? ref.authService as string);
-        }
-        tokenUrl.searchParams.set("scope", challenge.scope ?? `repository:${ref.repository}:pull`);
-
-        const tokenResponse = await fetchWithTimeout(fetcher, tokenUrl.toString(), undefined, timeoutMs, ref.original);
-        if (!tokenResponse.ok) {
-            throw new Error(`Failed to get registry token for ${ref.original}: ${await tokenResponse.text()}`);
-        }
-
-        const tokenBody = await tokenResponse.json() as { token?: string; access_token?: string };
-        const token = tokenBody.token ?? tokenBody.access_token;
-        if (!token) {
-            throw new Error(`Registry token response for ${ref.original} did not include a token`);
-        }
-
-        response = await requestManifest(ref, fetcher, token, timeoutMs);
+    if (!manifest.response.ok) {
+        throw new Error(`Failed to inspect ${ref.original}: ${await manifest.response.text()}`);
     }
 
-    if (!response.ok) {
-        throw new Error(`Failed to inspect ${ref.original}: ${await response.text()}`);
-    }
-
-    return response.headers.get("docker-content-digest") ?? undefined;
+    return manifest.response.headers.get("docker-content-digest") ?? undefined;
 }

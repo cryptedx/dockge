@@ -42,6 +42,7 @@ export interface MaintenanceSnapshot {
 }
 
 export const MAINTENANCE_SNAPSHOT_KEY = "dockge.maintenance.lastScan";
+export const MAINTENANCE_SNAPSHOT_UPDATED_EVENT = "dockge.maintenance.snapshotUpdated";
 
 export function maintenanceKey(endpoint: string, stackName: string, serviceName: string) {
     return `${endpoint}_${stackName}_${serviceName}`;
@@ -119,6 +120,11 @@ export function getMaintenanceSnapshotStack(snapshot: MaintenanceSnapshot | unde
     return {
         services: stack.services,
     };
+}
+
+export function getMaintenanceSnapshotStackUpdateCount(snapshot: MaintenanceSnapshot | undefined, endpoint: string, stackName: string) {
+    return getMaintenanceSnapshotStack(snapshot, endpoint, stackName)
+        ?.services.filter((service) => service.status === "update-available").length || 0;
 }
 
 export function buildMaintenanceQueue(rows: MaintenanceRow[], selected: Record<string, boolean>): MaintenanceUpdateJob[] {

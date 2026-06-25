@@ -155,6 +155,7 @@ import {
     getMaintenanceSummary,
     isCurrentMaintenanceScan,
     MAINTENANCE_SNAPSHOT_KEY,
+    MAINTENANCE_SNAPSHOT_UPDATED_EVENT,
     parseMaintenanceSnapshot,
 } from "../util-maintenance";
 
@@ -481,6 +482,7 @@ export default {
                 scanResults: this.scanResults,
                 selected: this.selected,
             }));
+            window.dispatchEvent(new Event(MAINTENANCE_SNAPSHOT_UPDATED_EVENT));
         },
     },
 };

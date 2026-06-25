@@ -43,7 +43,7 @@
                     <span v-else>{{ agent.endpoint }}</span>
                 </button>
                 <StackListItem
-                    v-for="(item, index) in agent.stacks" v-show="$root.agentCount === 1 || !closedAgents.get(agent.endpoint)" :key="index" :stack="item"
+                    v-for="(item, index) in agent.stacks" v-show="$root.agentCount === 1 || !closedAgents.get(agent.endpoint)" :key="index" :stack="item" :update-count="getStackUpdateCount(item)"
                 />
             </div>
         </div>
@@ -105,6 +105,12 @@
 <script>
 import StackListItem from "../components/StackListItem.vue";
 import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, UNKNOWN, statusColor, statusNameShort } from "../../../common/util-common";
+import {
+    getMaintenanceSnapshotStackUpdateCount,
+    MAINTENANCE_SNAPSHOT_KEY,
+    MAINTENANCE_SNAPSHOT_UPDATED_EVENT,
+    parseMaintenanceSnapshot,
+} from "../util-maintenance";
 
 export default {
     components: {
@@ -123,6 +129,7 @@ export default {
             projectSearchQuery: "",
             projectSearchIndex: 0,
             windowTop: 0,
+            maintenanceSnapshot: parseMaintenanceSnapshot(localStorage.getItem(MAINTENANCE_SNAPSHOT_KEY)),
             closedAgents: new Map(),
         };
     },
@@ -307,10 +314,14 @@ export default {
     mounted() {
         window.addEventListener("scroll", this.onScroll);
         window.addEventListener("keydown", this.handleGlobalProjectSearchShortcut, true);
+        window.addEventListener("storage", this.handleMaintenanceSnapshotStorage);
+        window.addEventListener(MAINTENANCE_SNAPSHOT_UPDATED_EVENT, this.refreshMaintenanceSnapshot);
     },
     beforeUnmount() {
         window.removeEventListener("scroll", this.onScroll);
         window.removeEventListener("keydown", this.handleGlobalProjectSearchShortcut, true);
+        window.removeEventListener("storage", this.handleMaintenanceSnapshotStorage);
+        window.removeEventListener(MAINTENANCE_SNAPSHOT_UPDATED_EVENT, this.refreshMaintenanceSnapshot);
     },
     methods: {
         /**
@@ -331,6 +342,21 @@ export default {
          */
         clearSearchText() {
             this.searchText = "";
+        },
+        refreshMaintenanceSnapshot() {
+            this.maintenanceSnapshot = parseMaintenanceSnapshot(localStorage.getItem(MAINTENANCE_SNAPSHOT_KEY));
+        },
+        handleMaintenanceSnapshotStorage(event) {
+            if (event.key === MAINTENANCE_SNAPSHOT_KEY) {
+                this.refreshMaintenanceSnapshot();
+            }
+        },
+        getStackUpdateCount(stack) {
+            return getMaintenanceSnapshotStackUpdateCount(
+                this.maintenanceSnapshot,
+                stack.endpoint || "",
+                stack.name
+            );
         },
         openProjectSearchFromInput() {
             this.openProjectSearch(this.searchText);

@@ -2,7 +2,14 @@
     <router-link :to="url" :class="{ 'dim' : !stack.isManagedByDockge }" class="item">
         <Uptime :stack="stack" :fixed-width="true" class="me-2" />
         <div class="title">
-            <span>{{ stackName }}</span>
+            <span class="stack-name">{{ stackName }}</span>
+            <span
+                v-if="updateCount > 0"
+                class="badge rounded-pill bg-danger update-count-badge"
+                :aria-label="`${updateCount} updates available`"
+            >
+                {{ updateCount }}
+            </span>
         </div>
     </router-link>
 </template>
@@ -19,6 +26,10 @@ export default {
         stack: {
             type: Object,
             default: null,
+        },
+        updateCount: {
+            type: Number,
+            default: 0,
         },
     },
     computed: {
@@ -69,6 +80,22 @@ export default {
     }
     .title {
         margin-top: -4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+    }
+    .stack-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .update-count-badge {
+        flex: 0 0 auto;
+        font-size: 11px;
+        line-height: 1;
+        min-width: 20px;
+        padding: 3px 6px;
     }
     .endpoint {
         font-size: 12px;

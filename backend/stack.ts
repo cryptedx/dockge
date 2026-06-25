@@ -25,6 +25,7 @@ import {
     fetchManifestDigest,
     normalizeImageReference,
     parseRepoDigests,
+    updatePinnedComposeImageDigests,
     UpdateState,
 } from "./update-planner";
 
@@ -220,12 +221,16 @@ export class Stack {
         }
 
         // Write or overwrite the compose.yaml
-        fs.writeFileSync(path.join(dir, this._composeFileName), this.composeYAML);
+        this.writeComposeYAML();
+    }
+
+    private writeComposeYAML() {
+        fs.writeFileSync(path.join(this.path, this._composeFileName), this.composeYAML);
         if (process.env.PUID && process.env.PGID) {
             const uid = Number(process.env.PUID);
             const gid = Number(process.env.PGID);
-            fs.lchownSync(dir, uid, gid);
-            fs.chownSync(path.join(dir, this._composeFileName), uid, gid);
+            fs.lchownSync(this.path, uid, gid);
+            fs.chownSync(path.join(this.path, this._composeFileName), uid, gid);
         }
     }
 
@@ -519,6 +524,8 @@ export class Stack {
     }
 
     async update(socket: DockgeSocket, serviceNames: string[] = []) {
+        await this.updatePinnedImageDigests(serviceNames);
+
         const terminalName = getComposeTerminalName(socket.endpoint, this.name);
         let exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("pull", ...serviceNames), this.path);
         if (exitCode !== 0) {
@@ -537,6 +544,19 @@ export class Stack {
             throw new Error("Failed to restart, please check the terminal output for more information.");
         }
         return exitCode;
+    }
+
+    private async updatePinnedImageDigests(serviceNames: string[]) {
+        const selectedServices = new Set(serviceNames);
+        const updates = (await this.checkUpdates()).services.filter((service) => {
+            return (selectedServices.size === 0 || selectedServices.has(service.service)) && service.status === "update-available";
+        });
+        const nextComposeYAML = updatePinnedComposeImageDigests(this.composeYAML, updates);
+        if (nextComposeYAML === this.composeYAML) {
+            return;
+        }
+        this._composeYAML = nextComposeYAML;
+        this.writeComposeYAML();
     }
 
     private async getLocalImageDigests(image: string) {

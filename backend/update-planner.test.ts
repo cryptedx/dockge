@@ -6,6 +6,7 @@ import {
     isComposeServiceName,
     normalizeImageReference,
     parseRepoDigests,
+    updatePinnedComposeImageDigests,
 } from "./update-planner";
 
 const dockerHub = normalizeImageReference("nginx:latest");
@@ -125,6 +126,28 @@ const digest = await fetchManifestDigest(dockerHub, async (url, init) => {
 
 assert.equal(digest, "sha256:remote");
 assert.equal(calls[2].authorization, "Bearer registry-token");
+
+const composeWithPinnedDigest = `
+services:
+  redis:
+    image: valkey/valkey:9@sha256:old
+  web:
+    image: nginx:latest
+`;
+assert.match(updatePinnedComposeImageDigests(composeWithPinnedDigest, [
+    {
+        service: "redis",
+        image: "docker.io/valkey/valkey:9@sha256:old",
+        remoteDigest: "sha256:new",
+    },
+]), /image: valkey\/valkey:9@sha256:new/);
+assert.equal(updatePinnedComposeImageDigests(composeWithPinnedDigest, [
+    {
+        service: "web",
+        image: "nginx:latest",
+        remoteDigest: "sha256:new",
+    },
+]), composeWithPinnedDigest);
 
 await assert.rejects(
     () => fetchManifestDigest(normalizeImageReference("ghcr.io/example/slow:latest"), () => new Promise(() => {}), 1),

@@ -1,3 +1,5 @@
+import yaml from "yaml";
+
 export type UpdateState = "current" | "update-available" | "unknown";
 
 export interface NormalizedImageReference {
@@ -72,6 +74,42 @@ export function normalizeImageReference(image: string): NormalizedImageReference
         manifestUrl: `https://${registry}/v2/${repository}/manifests/${encodeURIComponent(tag)}`,
         authService,
     };
+}
+
+function imageTargetMatches(leftImage: string, rightImage: string) {
+    const left = normalizeImageReference(leftImage);
+    const right = normalizeImageReference(rightImage);
+    return left.registry === right.registry && left.repository === right.repository && left.tag === right.tag;
+}
+
+function replaceImageDigest(image: string, digest: string) {
+    return `${image.split("@")[0]}@${digest}`;
+}
+
+export function updatePinnedComposeImageDigests(composeYAML: string, updates: Array<ComposeImage & { remoteDigest?: string }>) {
+    const doc = yaml.parseDocument(composeYAML);
+    let changed = false;
+
+    for (const update of updates) {
+        if (!update.remoteDigest) {
+            continue;
+        }
+
+        const currentImage = doc.getIn([ "services", update.service, "image" ]);
+        if (typeof currentImage !== "string" || !currentImage.includes("@") || !imageTargetMatches(currentImage, update.image)) {
+            continue;
+        }
+
+        const nextImage = replaceImageDigest(currentImage, update.remoteDigest);
+        if (nextImage === currentImage) {
+            continue;
+        }
+
+        doc.setIn([ "services", update.service, "image" ], nextImage);
+        changed = true;
+    }
+
+    return changed ? doc.toString() : composeYAML;
 }
 
 export function parseRepoDigests(repoDigests: string[] | undefined): string[] {

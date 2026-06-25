@@ -18,12 +18,10 @@
                     </router-link>
 
                     <!-- Logout Button -->
-                    <a v-if="$root.isMobile && $root.loggedIn && $root.socket.token !== 'autoLogin'" class="logout" @click.prevent="$root.logout">
-                        <div class="menu-item">
-                            <font-awesome-icon icon="sign-out-alt" />
-                            {{ $t("Logout") }}
-                        </div>
-                    </a>
+                    <button v-if="$root.isMobile && $root.loggedIn && $root.socket.token !== 'autoLogin'" class="menu-item logout" type="button" @click="$root.logout">
+                        <font-awesome-icon icon="sign-out-alt" />
+                        {{ $t("Logout") }}
+                    </button>
                 </div>
                 <div class="settings-content col-lg-9 col-md-7">
                     <div v-if="currentPage" class="settings-content-header">
@@ -250,6 +248,10 @@ footer {
 }
 
 .logout {
+    background: transparent;
+    border: 0;
     color: $danger !important;
+    text-align: left;
+    width: calc(100% - 1em);
 }
 </style>

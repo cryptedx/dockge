@@ -8,13 +8,13 @@ After each commit intended for testing on this branch:
 2. Push the branch:
 
    ```bash
-   git push origin codex/compose-split-pane
+   git push origin master
    ```
 
 3. Deploy to the live test host:
 
    ```bash
-   ssh docker-main 'cd /opt/dockge-custom && git fetch origin codex/compose-split-pane && git checkout codex/compose-split-pane && git pull --ff-only origin codex/compose-split-pane && docker build --target release -t dockge:compose-split-pane -f docker/Dockerfile . && cd /opt/dockge && docker compose up -d'
+   ssh docker-main 'cd /opt/dockge-custom && git fetch origin master && git checkout master && git pull --ff-only origin master && docker build --target release -t dockge:compose-split-pane -f docker/Dockerfile . && cd /opt/dockge && docker compose up -d'
    ```
 
 4. Verify the live container:

@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import {
+    categorizeUpdateReason,
     compareDigests,
     extractComposeImages,
     fetchManifestDigest,
     fetchManifestInfo,
+    getImageRegistryUrl,
+    getRollbackImage,
     isComposeServiceName,
     normalizeImageReference,
     parseRepoDigests,
+    summarizePreflight,
     updatePinnedComposeImageDigests,
 } from "./update-planner";
 
@@ -29,6 +33,46 @@ assert.deepEqual(ghcr, {
     manifestUrl: "https://ghcr.io/v2/example/app/manifests/1.2.3",
     authService: undefined,
 });
+assert.equal(getImageRegistryUrl("nginx:latest"), "https://hub.docker.com/_/nginx/tags");
+assert.equal(getImageRegistryUrl("louislam/dockge:latest"), "https://hub.docker.com/r/louislam/dockge/tags");
+assert.equal(getImageRegistryUrl("ghcr.io/example/app:1.2.3"), "https://github.com/example/app/pkgs/container/app");
+assert.equal(getRollbackImage("nginx:latest", [ "sha256:old" ]), "nginx:latest@sha256:old");
+assert.equal(getRollbackImage("nginx:latest", []), undefined);
+assert.equal(categorizeUpdateReason("No local repo digest found"), "no-local-digest");
+assert.equal(categorizeUpdateReason("No remote registry digest found"), "no-remote-digest");
+assert.equal(categorizeUpdateReason("Timed out checking nginx:latest after 15000ms"), "registry-timeout");
+assert.equal(categorizeUpdateReason("Registry rejected nginx:latest without an auth challenge"), "registry-auth");
+assert.equal(categorizeUpdateReason("docker compose config failed"), "compose-config-error");
+assert.deepEqual(summarizePreflight([
+    {
+        name: "Compose config",
+        status: "ok",
+        message: "parsed",
+    },
+]), {
+    status: "ok",
+    checks: [
+        {
+            name: "Compose config",
+            status: "ok",
+            message: "parsed",
+        },
+    ],
+});
+assert.equal(summarizePreflight([
+    {
+        name: "Disk space",
+        status: "warning",
+        message: "low",
+    },
+]).status, "warning");
+assert.equal(summarizePreflight([
+    {
+        name: "Compose config",
+        status: "failed",
+        message: "invalid",
+    },
+]).status, "failed");
 
 const manifestInfoCalls: string[] = [];
 const manifestInfo = await fetchManifestInfo(ghcr, async (url) => {

@@ -20,12 +20,20 @@ import {
 import { InteractiveTerminal, Terminal } from "./terminal";
 import { Settings } from "./settings";
 import {
+    categorizeUpdateReason,
     compareDigests,
     extractComposeImages,
     fetchManifestInfo,
+    getImageRegistryUrl,
+    getRollbackImage,
+    getUnknownUpdateReason,
     normalizeImageReference,
     parseRepoDigests,
+    summarizePreflight,
+    UpdatePreflightCheck,
     updatePinnedComposeImageDigests,
+    UpdatePreflightSummary,
+    UpdateReasonCode,
     UpdateState,
 } from "./update-planner";
 
@@ -38,11 +46,15 @@ export interface StackUpdateService {
     localDigests: string[];
     remoteDigest?: string;
     remoteCreatedAt?: string;
+    registryUrl?: string;
+    rollbackImage?: string;
     reason?: string;
+    reasonCode?: UpdateReasonCode;
 }
 
 export interface StackUpdateCheck {
     checkedAt: string;
+    preflight: UpdatePreflightSummary;
     services: StackUpdateService[];
 }
 
@@ -494,6 +506,7 @@ export class Stack {
             maxBuffer: 10 * 1024 * 1024,
         });
         const services = extractComposeImages(JSON.parse(configResult.stdout.toString()));
+        const preflight = await this.checkUpdatePreflight();
         const results: StackUpdateService[] = [];
 
         for (const service of services) {
@@ -501,32 +514,46 @@ export class Stack {
                 const localDigests = await this.getLocalImageDigests(service.image);
                 const remote = await fetchManifestInfo(normalizeImageReference(service.image));
                 const status = compareDigests(localDigests, remote.digest);
+                const reason = status === "unknown" ? getUnknownUpdateReason(localDigests, remote.digest) : undefined;
                 results.push({
                     ...service,
                     status,
                     localDigests,
                     remoteDigest: remote.digest,
                     remoteCreatedAt: remote.createdAt,
-                    reason: status === "unknown" ? "No local repo digest found" : undefined,
+                    registryUrl: getImageRegistryUrl(service.image),
+                    rollbackImage: getRollbackImage(service.image, localDigests),
+                    reason,
+                    reasonCode: reason ? categorizeUpdateReason(reason) : undefined,
                 });
             } catch (e) {
+                const reason = e instanceof Error ? e.message : "Update check failed";
                 results.push({
                     ...service,
                     status: "unknown",
                     localDigests: [],
-                    reason: e instanceof Error ? e.message : "Update check failed",
+                    registryUrl: getImageRegistryUrl(service.image),
+                    reason,
+                    reasonCode: categorizeUpdateReason(reason),
                 });
             }
         }
 
         return {
             checkedAt: new Date().toISOString(),
+            preflight,
             services: results,
         };
     }
 
     async update(socket: DockgeSocket, serviceNames: string[] = []) {
-        await this.updatePinnedImageDigests(serviceNames);
+        const updateCheck = await this.checkUpdates();
+        if (updateCheck.preflight.status === "failed") {
+            const failed = updateCheck.preflight.checks.find((check) => check.status === "failed");
+            throw new Error(`Preflight failed: ${failed?.message || "Update cannot start"}`);
+        }
+        this.assertSelectedServicesUpdateable(updateCheck.services, serviceNames);
+        await this.updatePinnedImageDigests(serviceNames, updateCheck.services);
 
         const terminalName = getComposeTerminalName(socket.endpoint, this.name);
         let exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("pull", ...serviceNames), this.path);
@@ -548,9 +575,26 @@ export class Stack {
         return exitCode;
     }
 
-    private async updatePinnedImageDigests(serviceNames: string[]) {
+    private assertSelectedServicesUpdateable(services: StackUpdateService[], serviceNames: string[]) {
+        if (serviceNames.length === 0) {
+            return;
+        }
+
+        const byName = new Map(services.map((service) => [ service.service, service ]));
+        for (const serviceName of serviceNames) {
+            const service = byName.get(serviceName);
+            if (!service) {
+                throw new Error(`Service ${serviceName} was not found in compose config`);
+            }
+            if (service.status !== "update-available") {
+                throw new Error(`Service ${serviceName} is not ready to update: ${service.reason || service.status}`);
+            }
+        }
+    }
+
+    private async updatePinnedImageDigests(serviceNames: string[], checkedServices?: StackUpdateService[]) {
         const selectedServices = new Set(serviceNames);
-        const updates = (await this.checkUpdates()).services.filter((service) => {
+        const updates = (checkedServices ?? (await this.checkUpdates()).services).filter((service) => {
             return (selectedServices.size === 0 || selectedServices.has(service.service)) && service.status === "update-available";
         });
         const nextComposeYAML = updatePinnedComposeImageDigests(this.composeYAML, updates);
@@ -571,6 +615,44 @@ export class Stack {
         } catch (e) {
             return [];
         }
+    }
+
+    private async checkUpdatePreflight() {
+        const checks: UpdatePreflightCheck[] = [
+            {
+                name: "Compose config",
+                status: "ok",
+                message: "Compose config parsed",
+            },
+        ];
+
+        await this.updateStatus();
+        checks.push({
+            name: "Stack status",
+            status: this.status === RUNNING ? "ok" : "warning",
+            message: this.status === RUNNING ? "Stack is running" : "Stack is not running; update will pull images without recreate",
+        });
+
+        try {
+            const result = await execFileAsync("df", [ "-Pk", this.path ], {
+                encoding: "utf-8",
+                maxBuffer: 1024 * 1024,
+            });
+            const availableKb = Number(result.stdout.toString().trim().split("\n")[1]?.trim().split(/\s+/)[3]);
+            checks.push({
+                name: "Disk space",
+                status: Number.isFinite(availableKb) && availableKb < 1024 * 1024 ? "warning" : "ok",
+                message: Number.isFinite(availableKb) ? `${Math.floor(availableKb / 1024)} MB available` : "Disk space checked",
+            });
+        } catch {
+            checks.push({
+                name: "Disk space",
+                status: "warning",
+                message: "Disk space check unavailable",
+            });
+        }
+
+        return summarizePreflight(checks);
     }
 
     async joinCombinedTerminal(socket: DockgeSocket) {

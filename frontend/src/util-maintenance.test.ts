@@ -2,14 +2,23 @@ import assert from "node:assert/strict";
 import {
     buildMaintenanceQueue,
     flattenMaintenanceScan,
+    getMaintenanceCurrentImage,
     getMaintenanceDisplayImage,
+    getMaintenanceHistoryLabel,
     getMaintenanceImageAge,
+    getMaintenanceReasonCodeLabel,
+    getMaintenanceRegistryLabel,
+    getMaintenanceRollbackHint,
     getMaintenanceSummary,
     getMaintenanceProgressPercent,
     getMaintenanceSnapshotStack,
     getMaintenanceSnapshotStackUpdateCount,
+    getMaintenanceTargetImage,
+    isMaintenanceImageOlderThanDays,
     isCurrentMaintenanceScan,
+    markMaintenanceQueuePreview,
     parseMaintenanceSnapshot,
+    recordMaintenanceHistory,
 } from "./util-maintenance";
 
 const scans = [
@@ -28,6 +37,8 @@ const scans = [
                         localDigests: [ "sha256:old" ],
                         remoteDigest: "sha256:new",
                         remoteCreatedAt: "2026-06-24T12:00:00Z",
+                        registryUrl: "https://hub.docker.com/r/library/plex/tags",
+                        rollbackImage: "plex:latest@sha256:old",
                     },
                     {
                         service: "db",
@@ -56,6 +67,7 @@ const scans = [
                         image: "redis:7",
                         status: "unknown",
                         reason: "No local repo digest found",
+                        reasonCode: "no-local-digest",
                     },
                 ],
             },
@@ -74,8 +86,16 @@ const rows = flattenMaintenanceScan(scans);
 assert.equal(rows.length, 4);
 assert.equal(rows[0].key, "_media_plex");
 assert.equal(getMaintenanceDisplayImage(rows[0]), "plex:latest@sha256:new");
+assert.equal(getMaintenanceCurrentImage(rows[0]), "plex:latest@sha256:old");
+assert.equal(getMaintenanceTargetImage(rows[0]), "plex:latest@sha256:new");
+assert.equal(getMaintenanceRegistryLabel(rows[0]), "Registry");
+assert.equal(getMaintenanceReasonCodeLabel(rows[3]), "Local");
+assert.equal(getMaintenanceRollbackHint(rows[0]), "Rollback image: plex:latest@sha256:old");
 assert.equal(getMaintenanceImageAge(rows[0], Date.parse("2026-06-25T12:00:00Z")), "24h");
 assert.equal(getMaintenanceImageAge(rows[1], Date.parse("2026-06-25T12:00:00Z")), "");
+assert.equal(isMaintenanceImageOlderThanDays(rows[0], 1, Date.parse("2026-06-26T12:00:00Z")), true);
+assert.equal(isMaintenanceImageOlderThanDays(rows[0], 7, Date.parse("2026-06-26T12:00:00Z")), false);
+assert.equal(isMaintenanceImageOlderThanDays(rows[1], 1, Date.parse("2026-06-26T12:00:00Z")), false);
 assert.equal(rows[2].key, "tcp://agent:5001_tools_wiki");
 assert.equal(rows[3].selectable, false);
 
@@ -118,10 +138,22 @@ assert.deepEqual(parseMaintenanceSnapshot(JSON.stringify({
     selected: {
         "_media_plex": true,
     },
+    history: {
+        "_media_plex": {
+            status: "done",
+            checkedAt: "2026-06-25T12:00:00Z",
+        },
+    },
 })), {
     scanResults: scans,
     selected: {
         "_media_plex": true,
+    },
+    history: {
+        "_media_plex": {
+            status: "done",
+            checkedAt: "2026-06-25T12:00:00Z",
+        },
     },
 });
 assert.deepEqual(getMaintenanceSnapshotStack({
@@ -178,3 +210,29 @@ assert.deepEqual(buildMaintenanceQueue(rows, {
         status: "queued",
     },
 ]);
+
+assert.deepEqual(markMaintenanceQueuePreview(buildMaintenanceQueue(rows, {
+    "_media_plex": true,
+})), [
+    {
+        endpoint: "",
+        agentName: "Current",
+        stackName: "media",
+        serviceNames: [ "plex" ],
+        status: "preview",
+    },
+]);
+
+const history = recordMaintenanceHistory({}, rows, {
+    endpoint: "",
+    agentName: "Current",
+    stackName: "media",
+    serviceNames: [ "plex" ],
+    status: "done",
+}, "done", "2026-06-25T12:00:00Z");
+assert.deepEqual(history["_media_plex"], {
+    status: "done",
+    checkedAt: "2026-06-25T12:00:00Z",
+    rollbackImage: "plex:latest@sha256:old",
+});
+assert.equal(getMaintenanceHistoryLabel(history["_media_plex"]), "Done");

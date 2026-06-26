@@ -29,6 +29,20 @@
                     <input v-model="updatesOnly" class="form-check-input" type="checkbox" name="updates-only" />
                     <span class="form-check-label">Updates Only</span>
                 </label>
+                <label class="form-check">
+                    <input v-model="hideUnknown" class="form-check-input" type="checkbox" name="hide-unknown" />
+                    <span class="form-check-label">Hide Unknown</span>
+                </label>
+                <label class="form-check">
+                    <input v-model="selectedOnly" class="form-check-input" type="checkbox" name="selected-only" />
+                    <span class="form-check-label">Selected Only</span>
+                </label>
+                <select v-model="imageAgeFilter" class="form-select" name="image-age-filter" aria-label="Image Age Filter">
+                    <option value="0">Any Age</option>
+                    <option value="1">Older Than 1 Day</option>
+                    <option value="7">Older Than 7 Days</option>
+                    <option value="30">Older Than 30 Days</option>
+                </select>
                 <select v-model="agentFilter" class="form-select" name="agent-filter" aria-label="Agent Filter">
                     <option value="">All Agents</option>
                     <option v-for="agent in agentOptions" :key="agent.endpoint" :value="agent.endpoint">{{ agent.name }}</option>
@@ -66,9 +80,10 @@
                         <col class="maintenance-col-service" />
                         <col class="maintenance-col-agent" />
                         <col class="maintenance-col-stack" />
-                        <col class="maintenance-col-container" />
+                        <col class="maintenance-col-image" />
                         <col class="maintenance-col-image" />
                         <col class="maintenance-col-image-age" />
+                        <col class="maintenance-col-preflight" />
                         <col class="maintenance-col-status" />
                         <col class="maintenance-col-reason" />
                     </colgroup>
@@ -77,19 +92,20 @@
                             <th>Service</th>
                             <th>Agent</th>
                             <th>Stack</th>
-                            <th>Container</th>
-                            <th>Image</th>
+                            <th>Current Image</th>
+                            <th>New Image</th>
                             <th>New Image Age</th>
+                            <th>Preflight</th>
                             <th>Status</th>
                             <th>Reason</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="!scanResults.length && !scanning">
-                            <td colspan="8" class="maintenance-empty">Run a scan to load update status from all agents.</td>
+                            <td colspan="9" class="maintenance-empty">Run a scan to load update status from all agents.</td>
                         </tr>
                         <tr v-if="scanResults.length > 0 && filteredRows.length === 0 && !scanning">
-                            <td colspan="8" class="maintenance-empty">No services match the current filters.</td>
+                            <td colspan="9" class="maintenance-empty">No services match the current filters.</td>
                         </tr>
                         <tr v-for="row in filteredRows" :key="row.key">
                             <td>
@@ -102,18 +118,29 @@
                                     />
                                     <span>{{ row.service }}</span>
                                 </label>
+                                <small v-if="getMaintenanceHistoryLabel(history[row.key])" class="maintenance-history" :title="history[row.key].checkedAt">
+                                    {{ getMaintenanceHistoryLabel(history[row.key]) }}
+                                </small>
                             </td>
                             <td>{{ row.agentName }}</td>
                             <td>{{ row.stackName }}</td>
-                            <td>{{ row.service }}</td>
                             <td class="maintenance-image">
-                                <span :title="getMaintenanceDisplayImage(row)">{{ getMaintenanceDisplayImage(row) }}</span>
+                                <span :title="getMaintenanceCurrentImage(row)">{{ getMaintenanceCurrentImage(row) }}</span>
+                                <small v-if="getMaintenanceRollbackHint(row)" :title="getMaintenanceRollbackHint(row)">{{ getMaintenanceRollbackHint(row) }}</small>
+                            </td>
+                            <td class="maintenance-image">
+                                <span :title="getMaintenanceTargetImage(row)">{{ getMaintenanceTargetImage(row) }}</span>
+                                <a v-if="row.registryUrl" :href="row.registryUrl" target="_blank" rel="noopener">{{ getMaintenanceRegistryLabel(row) }}</a>
                             </td>
                             <td class="maintenance-image-age">
                                 <span :title="row.remoteCreatedAt || ''">{{ getMaintenanceImageAge(row) }}</span>
                             </td>
+                            <td><span class="badge" :class="preflightBadgeClass(row.preflight?.status)">{{ preflightLabel(row.preflight) }}</span></td>
                             <td><span class="badge" :class="badgeClass(row.status)">{{ statusLabel(row.status) }}</span></td>
-                            <td class="maintenance-reason">{{ row.reason || "" }}</td>
+                            <td class="maintenance-reason">
+                                <span v-if="getMaintenanceReasonCodeLabel(row)" class="badge bg-secondary me-1">{{ getMaintenanceReasonCodeLabel(row) }}</span>
+                                {{ row.reason || "" }}
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -141,14 +168,18 @@
                     <strong>{{ selectedStackCount }}</strong> stacks and
                     <strong>{{ selectedAgentCount }}</strong> agents
                 </div>
+                <label class="form-check mb-0">
+                    <input v-model="dryRun" class="form-check-input" type="checkbox" name="dry-run" />
+                    <span class="form-check-label">Dry Run</span>
+                </label>
                 <button class="btn btn-primary" type="button" :disabled="queueRunning" @click="confirmUpdate = true">
                     <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
-                    Update Selected
+                    {{ dryRun ? "Preview Queue" : "Update Selected" }}
                 </button>
             </div>
 
-            <BModal v-model="confirmUpdate" title="Confirm Updates" okTitle="Update Selected" okVariant="primary" @ok="startUpdateQueue">
-                Update {{ selectedCount }} services on {{ selectedStackCount }} stacks across {{ selectedAgentCount }} agents?
+            <BModal v-model="confirmUpdate" title="Confirm Updates" :okTitle="dryRun ? 'Preview Queue' : 'Update Selected'" okVariant="primary" @ok="startUpdateQueue">
+                {{ dryRun ? "Preview" : "Update" }} {{ selectedCount }} services on {{ selectedStackCount }} stacks across {{ selectedAgentCount }} agents?
             </BModal>
         </div>
     </transition>
@@ -159,14 +190,22 @@ import { BModal } from "bootstrap-vue-next";
 import {
     buildMaintenanceQueue,
     flattenMaintenanceScan,
-    getMaintenanceDisplayImage,
+    getMaintenanceCurrentImage,
+    getMaintenanceHistoryLabel,
     getMaintenanceImageAge,
     getMaintenanceProgressPercent,
+    getMaintenanceReasonCodeLabel,
+    getMaintenanceRegistryLabel,
+    getMaintenanceRollbackHint,
     getMaintenanceSummary,
+    getMaintenanceTargetImage,
+    isMaintenanceImageOlderThanDays,
     isCurrentMaintenanceScan,
     MAINTENANCE_SNAPSHOT_KEY,
     MAINTENANCE_SNAPSHOT_UPDATED_EVENT,
+    markMaintenanceQueuePreview,
     parseMaintenanceSnapshot,
+    recordMaintenanceHistory,
 } from "../util-maintenance";
 
 export default {
@@ -178,10 +217,15 @@ export default {
             scanning: false,
             scanResults: [],
             selected: {},
+            history: {},
             queue: [],
             queueRunning: false,
             scanDone: 0,
             updatesOnly: true,
+            hideUnknown: false,
+            selectedOnly: false,
+            imageAgeFilter: "0",
+            dryRun: false,
             agentFilter: "",
             searchText: "",
             scanCurrentAgent: "",
@@ -237,8 +281,18 @@ export default {
         },
         filteredRows() {
             const search = this.searchText.trim().toLowerCase();
+            const minAgeDays = Number(this.imageAgeFilter);
             return this.rows.filter((row) => {
                 if (this.updatesOnly && row.status !== "update-available") {
+                    return false;
+                }
+                if (this.hideUnknown && row.status === "unknown") {
+                    return false;
+                }
+                if (this.selectedOnly && !this.selected[row.key]) {
+                    return false;
+                }
+                if (minAgeDays > 0 && !isMaintenanceImageOlderThanDays(row, minAgeDays)) {
                     return false;
                 }
                 if (this.agentFilter && row.endpoint !== this.agentFilter) {
@@ -266,6 +320,9 @@ export default {
             if (this.queueRunning) {
                 return "running";
             }
+            if (this.queue.length > 0 && this.queue.every((job) => job.status === "preview")) {
+                return "preview";
+            }
             if (this.queue.some((job) => job.status === "failed")) {
                 return "finished with errors";
             }
@@ -275,6 +332,9 @@ export default {
             return this.queue.reduce((total, job) => total + job.serviceNames.length, 0);
         },
         queueServiceComplete() {
+            if (this.queue.length > 0 && this.queue.every((job) => job.status === "preview")) {
+                return this.queueServiceTotal;
+            }
             return this.queue
                 .filter((job) => job.status === "done" || job.status === "failed")
                 .reduce((total, job) => total + job.serviceNames.length, 0);
@@ -363,6 +423,7 @@ export default {
                     if (res.ok) {
                         scan.stacks.push({
                             name: task.stackName,
+                            preflight: res.updates.preflight,
                             services: res.updates.services,
                         });
                     } else {
@@ -426,8 +487,13 @@ export default {
                 .filter((entry) => entry[1]?.isManagedByDockge !== false)
                 .map((entry) => entry[0]);
         },
-        getMaintenanceDisplayImage,
+        getMaintenanceCurrentImage,
+        getMaintenanceHistoryLabel,
         getMaintenanceImageAge,
+        getMaintenanceReasonCodeLabel,
+        getMaintenanceRegistryLabel,
+        getMaintenanceRollbackHint,
+        getMaintenanceTargetImage,
         selectAllUpdateable() {
             const selected = {};
             for (const row of this.rows) {
@@ -440,6 +506,15 @@ export default {
         },
         startUpdateQueue() {
             this.queue = buildMaintenanceQueue(this.rows, this.selected);
+            if (this.dryRun) {
+                this.queue = markMaintenanceQueuePreview(this.queue);
+                for (const job of this.queue) {
+                    this.history = recordMaintenanceHistory(this.history, this.rows, job, "preview");
+                }
+                this.selected = {};
+                this.saveSnapshot();
+                return;
+            }
             this.selected = {};
             this.saveSnapshot();
             this.runNextJob();
@@ -457,10 +532,13 @@ export default {
                 if (res.ok) {
                     nextJob.status = "done";
                     this.markJobServicesCurrent(nextJob);
+                    this.history = recordMaintenanceHistory(this.history, this.rows, nextJob, "done");
                 } else {
                     nextJob.status = "failed";
                     nextJob.error = res.msg || "Update failed";
+                    this.history = recordMaintenanceHistory(this.history, this.rows, nextJob, "failed", new Date().toISOString(), nextJob.error);
                 }
+                this.saveSnapshot();
                 this.runNextJob();
             });
         },
@@ -505,8 +583,26 @@ export default {
             if (status === "failed") {
                 return "bg-danger";
             }
+            if (status === "preview") {
+                return "bg-info";
+            }
             if (status === "running") {
                 return "bg-primary";
+            }
+            return "bg-secondary";
+        },
+        preflightLabel(preflight) {
+            return preflight?.status || "unknown";
+        },
+        preflightBadgeClass(status) {
+            if (status === "ok") {
+                return "bg-success";
+            }
+            if (status === "warning") {
+                return "bg-warning text-dark";
+            }
+            if (status === "failed") {
+                return "bg-danger";
             }
             return "bg-secondary";
         },
@@ -517,6 +613,7 @@ export default {
             }
             this.scanResults = snapshot.scanResults;
             this.selected = snapshot.selected;
+            this.history = snapshot.history || {};
         },
         saveSnapshot() {
             if (!this.scanResults.length) {
@@ -525,6 +622,7 @@ export default {
             localStorage.setItem(MAINTENANCE_SNAPSHOT_KEY, JSON.stringify({
                 scanResults: this.scanResults,
                 selected: this.selected,
+                history: this.history,
             }));
             window.dispatchEvent(new Event(MAINTENANCE_SNAPSHOT_UPDATED_EVENT));
         },
@@ -542,6 +640,7 @@ export default {
 .maintenance-queue-header {
     align-items: center;
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     justify-content: space-between;
     min-width: 0;
@@ -606,10 +705,6 @@ export default {
 }
 
 .maintenance-col-stack {
-    width: 14%;
-}
-
-.maintenance-col-container {
     width: 12%;
 }
 
@@ -621,12 +716,16 @@ export default {
     width: 128px;
 }
 
+.maintenance-col-preflight {
+    width: 96px;
+}
+
 .maintenance-col-status {
     width: 82px;
 }
 
 .maintenance-col-reason {
-    width: 120px;
+    width: 180px;
 }
 
 .maintenance-progress-head {
@@ -655,12 +754,21 @@ export default {
     overflow-wrap: anywhere;
 }
 
-.maintenance-image span {
+.maintenance-image span,
+.maintenance-image small,
+.maintenance-image a,
+.maintenance-history {
     display: block;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.maintenance-image small,
+.maintenance-history {
+    color: $dark-font-color3;
+    font-size: 0.78rem;
 }
 
 .maintenance-image-age {

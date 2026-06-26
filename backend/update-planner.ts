@@ -1,6 +1,8 @@
 import yaml from "yaml";
 
 export type UpdateState = "current" | "update-available" | "unknown";
+export type UpdateReasonCode = "no-local-digest" | "no-remote-digest" | "registry-auth" | "registry-timeout" | "registry-error" | "compose-config-error";
+export type UpdatePreflightStatus = "ok" | "warning" | "failed";
 
 export interface NormalizedImageReference {
     original: string;
@@ -33,6 +35,17 @@ export interface ManifestInfo {
     createdAt?: string;
 }
 
+export interface UpdatePreflightCheck {
+    name: string;
+    status: UpdatePreflightStatus;
+    message: string;
+}
+
+export interface UpdatePreflightSummary {
+    status: UpdatePreflightStatus;
+    checks: UpdatePreflightCheck[];
+}
+
 const REGISTRY_FETCH_TIMEOUT_MS = 15_000;
 const MANIFEST_ACCEPT = [
     "application/vnd.docker.distribution.manifest.list.v2+json",
@@ -43,6 +56,10 @@ const MANIFEST_ACCEPT = [
 
 function hasRegistry(part: string) {
     return part === "localhost" || part.includes(".") || part.includes(":");
+}
+
+function imageWithDigest(image: string, digest: string) {
+    return `${image.split("@")[0]}@${digest}`;
 }
 
 export function normalizeImageReference(image: string): NormalizedImageReference {
@@ -81,14 +98,84 @@ export function normalizeImageReference(image: string): NormalizedImageReference
     };
 }
 
+export function getImageRegistryUrl(image: string) {
+    const ref = normalizeImageReference(image);
+    if (ref.registry === "registry-1.docker.io") {
+        if (ref.repository.startsWith("library/")) {
+            return `https://hub.docker.com/_/${ref.repository.slice("library/".length)}/tags`;
+        }
+        return `https://hub.docker.com/r/${ref.repository}/tags`;
+    }
+
+    if (ref.registry === "ghcr.io") {
+        const [ owner, repo, ...packageParts ] = ref.repository.split("/");
+        if (owner && repo) {
+            const packageName = packageParts.at(-1) ?? repo;
+            return `https://github.com/${owner}/${repo}/pkgs/container/${encodeURIComponent(packageName)}`;
+        }
+    }
+
+    return undefined;
+}
+
+export function getRollbackImage(image: string, localDigests: string[]) {
+    const digest = localDigests[0];
+    return digest ? imageWithDigest(image, digest) : undefined;
+}
+
+export function getUnknownUpdateReason(localDigests: string[], remoteDigest?: string) {
+    if (localDigests.length === 0) {
+        return "No local repo digest found";
+    }
+    if (!remoteDigest) {
+        return "No remote registry digest found";
+    }
+    return undefined;
+}
+
+export function categorizeUpdateReason(reason: string): UpdateReasonCode {
+    const lower = reason.toLowerCase();
+    if (lower.includes("local repo digest")) {
+        return "no-local-digest";
+    }
+    if (lower.includes("remote registry digest") || lower.includes("content-digest")) {
+        return "no-remote-digest";
+    }
+    if (lower.includes("timed out") || lower.includes("timeout")) {
+        return "registry-timeout";
+    }
+    if (lower.includes("auth") || lower.includes("unauthorized") || lower.includes("401") || lower.includes("403")) {
+        return "registry-auth";
+    }
+    if (lower.includes("compose") || lower.includes("config")) {
+        return "compose-config-error";
+    }
+    return "registry-error";
+}
+
+export function summarizePreflight(checks: UpdatePreflightCheck[]): UpdatePreflightSummary {
+    if (checks.some((check) => check.status === "failed")) {
+        return {
+            status: "failed",
+            checks,
+        };
+    }
+    if (checks.some((check) => check.status === "warning")) {
+        return {
+            status: "warning",
+            checks,
+        };
+    }
+    return {
+        status: "ok",
+        checks,
+    };
+}
+
 function imageTargetMatches(leftImage: string, rightImage: string) {
     const left = normalizeImageReference(leftImage);
     const right = normalizeImageReference(rightImage);
     return left.registry === right.registry && left.repository === right.repository && left.tag === right.tag;
-}
-
-function replaceImageDigest(image: string, digest: string) {
-    return `${image.split("@")[0]}@${digest}`;
 }
 
 export function updatePinnedComposeImageDigests(composeYAML: string, updates: Array<ComposeImage & { remoteDigest?: string }>) {
@@ -105,7 +192,7 @@ export function updatePinnedComposeImageDigests(composeYAML: string, updates: Ar
             continue;
         }
 
-        const nextImage = replaceImageDigest(currentImage, update.remoteDigest);
+        const nextImage = imageWithDigest(currentImage, update.remoteDigest);
         if (nextImage === currentImage) {
             continue;
         }

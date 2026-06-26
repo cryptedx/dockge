@@ -1,5 +1,6 @@
 export type MaintenanceStatus = "current" | "update-available" | "unknown";
-export type MaintenanceJobStatus = "queued" | "running" | "done" | "failed";
+export type MaintenanceJobStatus = "queued" | "running" | "done" | "failed" | "preview";
+export type MaintenanceReasonCode = "no-local-digest" | "no-remote-digest" | "registry-auth" | "registry-timeout" | "registry-error" | "compose-config-error";
 
 export interface MaintenanceService {
     service: string;
@@ -8,7 +9,19 @@ export interface MaintenanceService {
     localDigests?: string[];
     remoteDigest?: string;
     remoteCreatedAt?: string;
+    registryUrl?: string;
+    rollbackImage?: string;
     reason?: string;
+    reasonCode?: MaintenanceReasonCode;
+}
+
+export interface MaintenancePreflight {
+    status: "ok" | "warning" | "failed";
+    checks: Array<{
+        name: string;
+        status: "ok" | "warning" | "failed";
+        message: string;
+    }>;
 }
 
 export interface MaintenanceScan {
@@ -18,6 +31,7 @@ export interface MaintenanceScan {
     error?: string;
     stacks: Array<{
         name: string;
+        preflight?: MaintenancePreflight;
         services: MaintenanceService[];
     }>;
 }
@@ -28,6 +42,7 @@ export interface MaintenanceRow extends MaintenanceService {
     agentName: string;
     stackName: string;
     selectable: boolean;
+    preflight?: MaintenancePreflight;
 }
 
 export interface MaintenanceUpdateJob {
@@ -42,6 +57,14 @@ export interface MaintenanceUpdateJob {
 export interface MaintenanceSnapshot {
     scanResults: MaintenanceScan[];
     selected: Record<string, boolean>;
+    history?: Record<string, MaintenanceHistoryEntry>;
+}
+
+export interface MaintenanceHistoryEntry {
+    status: "done" | "failed" | "preview";
+    checkedAt: string;
+    error?: string;
+    rollbackImage?: string;
 }
 
 export const MAINTENANCE_SNAPSHOT_KEY = "dockge.maintenance.lastScan";
@@ -56,10 +79,49 @@ function imageWithDigest(image: string, digest: string) {
 }
 
 export function getMaintenanceDisplayImage(service: MaintenanceService) {
+    return getMaintenanceTargetImage(service);
+}
+
+export function getMaintenanceCurrentImage(service: MaintenanceService) {
+    if (service.rollbackImage) {
+        return service.rollbackImage;
+    }
+    if (service.localDigests?.[0]) {
+        return imageWithDigest(service.image, service.localDigests[0]);
+    }
+    return service.image;
+}
+
+export function getMaintenanceTargetImage(service: MaintenanceService) {
     if (service.status === "update-available" && service.remoteDigest) {
         return imageWithDigest(service.image, service.remoteDigest);
     }
     return service.image;
+}
+
+export function getMaintenanceRegistryLabel(service: MaintenanceService) {
+    return service.registryUrl ? "Registry" : "";
+}
+
+export function getMaintenanceRollbackHint(service: MaintenanceService) {
+    const rollbackImage = service.rollbackImage || (service.localDigests?.[0] ? imageWithDigest(service.image, service.localDigests[0]) : undefined);
+    return rollbackImage ? `Rollback image: ${rollbackImage}` : "";
+}
+
+export function getMaintenanceReasonCodeLabel(service: MaintenanceService) {
+    if (!service.reasonCode) {
+        return "";
+    }
+
+    const labels: Record<MaintenanceReasonCode, string> = {
+        "no-local-digest": "Local",
+        "no-remote-digest": "Remote",
+        "registry-auth": "Auth",
+        "registry-timeout": "Timeout",
+        "registry-error": "Registry",
+        "compose-config-error": "Compose",
+    };
+    return labels[service.reasonCode];
 }
 
 export function getMaintenanceImageAge(service: MaintenanceService, now = Date.now()) {
@@ -85,6 +147,19 @@ export function getMaintenanceImageAge(service: MaintenanceService, now = Date.n
     return `${Math.floor(hours / 24)}d`;
 }
 
+export function isMaintenanceImageOlderThanDays(service: MaintenanceService, days: number, now = Date.now()) {
+    if (days <= 0 || !service.remoteCreatedAt) {
+        return false;
+    }
+
+    const createdAt = Date.parse(service.remoteCreatedAt);
+    if (!Number.isFinite(createdAt)) {
+        return false;
+    }
+
+    return now - createdAt >= days * 24 * 60 * 60 * 1000;
+}
+
 export function flattenMaintenanceScan(scans: MaintenanceScan[]): MaintenanceRow[] {
     const rows = new Map<string, MaintenanceRow>();
     for (const scan of scans) {
@@ -98,6 +173,7 @@ export function flattenMaintenanceScan(scans: MaintenanceScan[]): MaintenanceRow
                     agentName: scan.name,
                     stackName: stack.name,
                     selectable: service.status === "update-available",
+                    preflight: stack.preflight,
                 };
                 if (!rows.has(key) || service.status === "update-available") {
                     rows.set(key, row);
@@ -142,6 +218,7 @@ export function parseMaintenanceSnapshot(value: string | null): MaintenanceSnaps
         return {
             scanResults: snapshot.scanResults,
             selected: snapshot.selected,
+            history: typeof snapshot.history === "object" && snapshot.history !== null ? snapshot.history : undefined,
         };
     } catch {
         return undefined;
@@ -187,4 +264,52 @@ export function buildMaintenanceQueue(rows: MaintenanceRow[], selected: Record<s
     }
 
     return [ ...jobs.values() ];
+}
+
+export function markMaintenanceQueuePreview(queue: MaintenanceUpdateJob[]): MaintenanceUpdateJob[] {
+    return queue.map((job) => ({
+        ...job,
+        status: "preview",
+    }));
+}
+
+export function recordMaintenanceHistory(
+    history: Record<string, MaintenanceHistoryEntry>,
+    rows: MaintenanceRow[],
+    job: MaintenanceUpdateJob,
+    status: "done" | "failed" | "preview",
+    checkedAt = new Date().toISOString(),
+    error?: string
+) {
+    const nextHistory = {
+        ...history,
+    };
+    const serviceNames = new Set(job.serviceNames);
+    for (const row of rows) {
+        if (row.endpoint !== job.endpoint || row.stackName !== job.stackName || !serviceNames.has(row.service)) {
+            continue;
+        }
+        nextHistory[row.key] = {
+            status,
+            checkedAt,
+            rollbackImage: row.rollbackImage || (row.localDigests?.[0] ? imageWithDigest(row.image, row.localDigests[0]) : undefined),
+        };
+        if (error) {
+            nextHistory[row.key].error = error;
+        }
+    }
+    return nextHistory;
+}
+
+export function getMaintenanceHistoryLabel(entry?: MaintenanceHistoryEntry) {
+    if (!entry) {
+        return "";
+    }
+    if (entry.status === "done") {
+        return "Done";
+    }
+    if (entry.status === "failed") {
+        return "Failed";
+    }
+    return "Preview";
 }

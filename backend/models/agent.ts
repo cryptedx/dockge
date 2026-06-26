@@ -19,11 +19,13 @@ export class Agent extends BeanModel {
     }
 
     toJSON() : LooseObject {
+        const name = this.name || "";
         return {
             url: this.url,
             username: this.username,
             endpoint: this.endpoint,
-            name: this.name,
+            name,
+            updatedName: name,
         };
     }
 

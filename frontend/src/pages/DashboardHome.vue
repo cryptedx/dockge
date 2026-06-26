@@ -60,25 +60,25 @@
 
                             <!-- Agent Display Name -->
                             <template v-if="$root.agentStatusList[endpoint]">
-                                <span v-if="endpoint === '' && agentItem.name === ''" class="badge bg-secondary me-2">Current</span>
-                                <span v-else-if="agentItem.name === ''" :href="agentItem.url" class="me-2">{{ endpoint }}</span>
+                                <span v-if="endpoint === ''" class="badge bg-secondary me-2">{{ $t("currentEndpoint") }}</span>
+                                <span v-else-if="!agentItem.name" :href="agentItem.url" class="me-2">{{ endpoint }}</span>
                                 <span v-else :href="agentItem.url" class="me-2">{{ agentItem.name }}</span>
                             </template>
 
                             <!-- Edit Name  -->
                             <button
-                                v-if="agentItem.name !== ''"
+                                v-if="endpoint !== ''"
                                 class="agent-icon-button"
                                 type="button"
                                 :aria-label="$t('editAgentName')"
-                                @click="showEditAgentNameDialog[agentItem.name] = !showEditAgentNameDialog[agentItem.name]"
+                                @click="showEditAgentNameDialog[endpoint] = !showEditAgentNameDialog[endpoint]"
                             >
                                 <font-awesome-icon icon="pen-to-square" />
                             </button>
 
                             <!-- Edit Dialog -->
-                            <BModal v-model="showEditAgentNameDialog[agentItem.name]" :no-close-on-backdrop="true" :close-on-esc="true" :okTitle="$t('Update Name')" okVariant="info" @ok="updateName(agentItem.url, agentItem.updatedName)">
-                                <label :for="agentFieldId('updated-agent-name', endpoint)" class="form-label">Current value: {{ $t(agentItem.name) }}</label>
+                            <BModal v-model="showEditAgentNameDialog[endpoint]" :no-close-on-backdrop="true" :close-on-esc="true" :okTitle="$t('Update Name')" okVariant="info" @ok="updateName(agentItem.url, agentItem.updatedName)">
+                                <label :for="agentFieldId('updated-agent-name', endpoint)" class="form-label">Current value: {{ agentItem.name || endpoint }}</label>
                                 <input :id="agentFieldId('updated-agent-name', endpoint)" v-model="agentItem.updatedName" name="updated-agent-name" type="text" class="form-control" autocomplete="off" optional>
                             </BModal>
 

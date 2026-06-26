@@ -17,10 +17,11 @@ After each commit intended for testing on this branch:
    ssh docker-main 'cd /opt/dockge-custom && git fetch origin master && git checkout master && git pull --ff-only origin master && docker build --target release -t dockge:master -f docker/Dockerfile . && cd /opt/dockge && docker compose up -d'
    ```
 
-4. Push the freshly built image to the Frigate LXC:
+4. Push the freshly built image to the Frigate LXC and recreate its Dockge container:
 
    ```bash
    ssh docker-main 'docker save dockge:master | gzip -1' | ssh pve-alt 'pct exec 106 -- sh -c "gunzip | docker load"'
+   ssh pve-alt 'pct exec 106 -- sh -c "cd /opt/dockge && docker compose up -d --force-recreate"'
    ```
 
 5. Verify the live container:
@@ -32,7 +33,7 @@ After each commit intended for testing on this branch:
 6. Verify the Frigate LXC image matches `docker-main`:
 
    ```bash
-   ssh docker-main 'docker image inspect dockge:master --format "{{.Id}}"' && ssh pve-alt 'pct exec 106 -- docker image inspect dockge:master --format "{{.Id}}"'
+   ssh docker-main 'docker image inspect dockge:master --format "{{.Id}}"' && ssh pve-alt 'pct exec 106 -- docker image inspect dockge:master --format "{{.Id}}" && pct exec 106 -- docker inspect dockge-frigate --format "{{.Image}}"'
    ```
 
 If direct SSH to `docker-main` flakes, use the gateway proxy:

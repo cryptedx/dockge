@@ -49,7 +49,10 @@ export interface MaintenanceUpdateJob {
     endpoint: string;
     agentName: string;
     stackName: string;
+    serviceName: string;
     serviceNames: string[];
+    image: string;
+    targetImage: string;
     status: MaintenanceJobStatus;
     error?: string;
 }
@@ -242,28 +245,26 @@ export function getMaintenanceSnapshotStackUpdateCount(snapshot: MaintenanceSnap
 }
 
 export function buildMaintenanceQueue(rows: MaintenanceRow[], selected: Record<string, boolean>): MaintenanceUpdateJob[] {
-    const jobs = new Map<string, MaintenanceUpdateJob>();
+    const jobs: MaintenanceUpdateJob[] = [];
 
     for (const row of rows) {
         if (!selected[row.key] || !row.selectable) {
             continue;
         }
 
-        const jobKey = `${row.endpoint}_${row.stackName}`;
-        if (!jobs.has(jobKey)) {
-            jobs.set(jobKey, {
-                endpoint: row.endpoint,
-                agentName: row.agentName,
-                stackName: row.stackName,
-                serviceNames: [],
-                status: "queued",
-            });
-        }
-
-        jobs.get(jobKey)?.serviceNames.push(row.service);
+        jobs.push({
+            endpoint: row.endpoint,
+            agentName: row.agentName,
+            stackName: row.stackName,
+            serviceName: row.service,
+            serviceNames: [ row.service ],
+            image: row.image,
+            targetImage: getMaintenanceTargetImage(row),
+            status: "queued",
+        });
     }
 
-    return [ ...jobs.values() ];
+    return jobs;
 }
 
 export function markMaintenanceQueuePreview(queue: MaintenanceUpdateJob[]): MaintenanceUpdateJob[] {

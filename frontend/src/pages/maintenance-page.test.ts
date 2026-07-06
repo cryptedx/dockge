@@ -19,3 +19,7 @@ assert.match(source, /getMaintenanceCurrentImage\(row\)/);
 assert.match(source, /getMaintenanceTargetImage\(row\)/);
 assert.match(source, /getMaintenanceRollbackHint\(row\)/);
 assert.match(source, /getMaintenanceHistoryLabel\(history\[row\.key\]\)/);
+assert.match(source, /import Terminal from "\.\.\/components\/Terminal\.vue";/);
+assert.match(source, /getComposeTerminalName,\s+PROGRESS_TERMINAL_ROWS/s);
+assert.match(source, /<Terminal[\s\S]*:name="activeTerminalName"/);
+assert.match(source, /queueProgressLabel\(\)[\s\S]*image/);

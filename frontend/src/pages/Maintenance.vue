@@ -154,12 +154,25 @@
                         <span class="badge bg-info">{{ queueProgressLabel }}</span>
                     </div>
                 </div>
-                <div v-for="job in queue" :key="`${job.endpoint}_${job.stackName}`" class="maintenance-job">
+                <div v-for="job in queue" :key="`${job.endpoint}_${job.stackName}_${job.serviceName}`" class="maintenance-job">
                     <span class="badge" :class="jobBadgeClass(job.status)">{{ job.status }}</span>
-                    <span>{{ job.agentName }} / {{ job.stackName }}</span>
-                    <span class="maintenance-job-services">{{ job.serviceNames.join(", ") }}</span>
+                    <span class="maintenance-job-target">
+                        <span>{{ job.agentName }} / {{ job.stackName }}</span>
+                        <small>{{ job.serviceName }}</small>
+                    </span>
+                    <span class="maintenance-job-services" :title="job.targetImage">{{ job.targetImage }}</span>
                     <span v-if="job.error" class="maintenance-reason">{{ job.error }}</span>
                 </div>
+            </div>
+
+            <div v-if="activeJob" class="maintenance-terminal mt-3">
+                <div class="maintenance-terminal-title">Live output for {{ activeJobLabel }}</div>
+                <Terminal
+                    :key="activeTerminalKey"
+                    :name="activeTerminalName"
+                    :endpoint="activeJob.endpoint"
+                    :rows="progressTerminalRows"
+                />
             </div>
 
             <div v-if="selectedCount > 0" class="maintenance-batch shadow-box">
@@ -187,6 +200,8 @@
 
 <script>
 import { BModal } from "bootstrap-vue-next";
+import Terminal from "../components/Terminal.vue";
+import { getComposeTerminalName, PROGRESS_TERMINAL_ROWS } from "../../../common/util-common";
 import {
     buildMaintenanceQueue,
     flattenMaintenanceScan,
@@ -211,6 +226,7 @@ import {
 export default {
     components: {
         BModal,
+        Terminal,
     },
     data() {
         return {
@@ -340,8 +356,23 @@ export default {
                 .reduce((total, job) => total + job.serviceNames.length, 0);
         },
         queueProgressLabel() {
-            const label = this.queueServiceTotal === 1 ? "container" : "containers";
+            const label = this.queueServiceTotal === 1 ? "image" : "images";
             return `${this.queueServiceComplete} / ${this.queueServiceTotal} ${label}`;
+        },
+        activeJob() {
+            return this.queue.find((job) => job.status === "running") || null;
+        },
+        activeTerminalName() {
+            return this.activeJob ? getComposeTerminalName(this.activeJob.endpoint, this.activeJob.stackName) : "";
+        },
+        activeTerminalKey() {
+            return this.activeJob ? `${this.activeTerminalName}_${this.activeJob.serviceName}` : "";
+        },
+        activeJobLabel() {
+            return this.activeJob ? `${this.activeJob.agentName} / ${this.activeJob.stackName} / ${this.activeJob.serviceName}` : "";
+        },
+        progressTerminalRows() {
+            return PROGRESS_TERMINAL_ROWS;
         },
         scanPercent() {
             return getMaintenanceProgressPercent(this.scanDone, this.scanTotal);
@@ -528,7 +559,7 @@ export default {
 
             this.queueRunning = true;
             nextJob.status = "running";
-            this.$root.emitAgent(nextJob.endpoint, "applyStackServiceUpdates", nextJob.stackName, nextJob.serviceNames, (res) => {
+            this.$nextTick(() => this.$root.emitAgent(nextJob.endpoint, "applyStackServiceUpdates", nextJob.stackName, nextJob.serviceNames, (res) => {
                 if (res.ok) {
                     nextJob.status = "done";
                     this.markJobServicesCurrent(nextJob);
@@ -540,7 +571,7 @@ export default {
                 }
                 this.saveSnapshot();
                 this.runNextJob();
-            });
+            }));
         },
         markJobServicesCurrent(job) {
             const scan = this.scanResults.find((item) => item.endpoint === job.endpoint);
@@ -656,7 +687,9 @@ export default {
 .maintenance-subtitle,
 .maintenance-empty,
 .maintenance-reason,
-.maintenance-job-services {
+.maintenance-job-services,
+.maintenance-job-target small,
+.maintenance-terminal-title {
     color: $dark-font-color3;
 }
 
@@ -750,7 +783,8 @@ export default {
 
 .maintenance-check span,
 .maintenance-reason,
-.maintenance-job-services {
+.maintenance-job-services,
+.maintenance-job-target {
     overflow-wrap: anywhere;
 }
 
@@ -784,8 +818,19 @@ export default {
     padding: 10px 0;
 }
 
+.maintenance-job-target span,
+.maintenance-job-target small,
+.maintenance-job-services {
+    display: block;
+}
+
 .maintenance-job:first-of-type {
     border-top: 0;
+}
+
+.maintenance-terminal-title {
+    font-size: 0.85rem;
+    margin-bottom: 6px;
 }
 
 .maintenance-batch {

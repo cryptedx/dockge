@@ -199,14 +199,73 @@ assert.deepEqual(buildMaintenanceQueue(rows, {
         endpoint: "",
         agentName: "Current",
         stackName: "media",
+        serviceName: "plex",
         serviceNames: [ "plex" ],
+        image: "plex:latest",
+        targetImage: "plex:latest@sha256:new",
         status: "queued",
     },
     {
         endpoint: "tcp://agent:5001",
         agentName: "Agent",
         stackName: "tools",
+        serviceName: "wiki",
         serviceNames: [ "wiki" ],
+        image: "wiki:latest",
+        targetImage: "wiki:latest",
+        status: "queued",
+    },
+]);
+
+const sameStackRows = flattenMaintenanceScan([
+    {
+        endpoint: "",
+        name: "Current",
+        ok: true,
+        stacks: [
+            {
+                name: "media",
+                services: [
+                    {
+                        service: "plex",
+                        image: "plex:latest",
+                        status: "update-available",
+                        remoteDigest: "sha256:plexnew",
+                    },
+                    {
+                        service: "tautulli",
+                        image: "tautulli:latest",
+                        status: "update-available",
+                        remoteDigest: "sha256:tautullinew",
+                    },
+                ],
+            },
+        ],
+    },
+]);
+
+assert.deepEqual(buildMaintenanceQueue(sameStackRows, {
+    "_media_plex": true,
+    "_media_tautulli": true,
+}), [
+    {
+        endpoint: "",
+        agentName: "Current",
+        stackName: "media",
+        serviceName: "plex",
+        serviceNames: [ "plex" ],
+        image: "plex:latest",
+        targetImage: "plex:latest@sha256:plexnew",
+        status: "queued",
+    },
+    {
+        endpoint: "",
+        agentName: "Current",
+        stackName: "media",
+        serviceName: "tautulli",
+        serviceNames: [ "tautulli" ],
+        image: "tautulli:latest",
+        targetImage: "tautulli:latest@sha256:tautullinew",
         status: "queued",
     },
 ]);
@@ -218,7 +277,10 @@ assert.deepEqual(markMaintenanceQueuePreview(buildMaintenanceQueue(rows, {
         endpoint: "",
         agentName: "Current",
         stackName: "media",
+        serviceName: "plex",
         serviceNames: [ "plex" ],
+        image: "plex:latest",
+        targetImage: "plex:latest@sha256:new",
         status: "preview",
     },
 ]);
@@ -227,7 +289,10 @@ const history = recordMaintenanceHistory({}, rows, {
     endpoint: "",
     agentName: "Current",
     stackName: "media",
+    serviceName: "plex",
     serviceNames: [ "plex" ],
+    image: "plex:latest",
+    targetImage: "plex:latest@sha256:new",
     status: "done",
 }, "done", "2026-06-25T12:00:00Z");
 assert.deepEqual(history["_media_plex"], {

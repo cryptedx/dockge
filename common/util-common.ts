@@ -26,6 +26,15 @@ export interface BaseRes {
     msg?: string;
 }
 
+export interface NormalizedImageReference {
+    original: string;
+    registry: string;
+    repository: string;
+    tag: string;
+    manifestUrl: string;
+    authService?: string;
+}
+
 let randomBytes : (numBytes: number) => Uint8Array;
 initRandomBytes();
 
@@ -113,6 +122,46 @@ export const acceptedComposeFileNames = [
     "docker-compose.yml",
     "compose.yml",
 ];
+
+function hasRegistry(part: string) {
+    return part === "localhost" || part.includes(".") || part.includes(":");
+}
+
+export function normalizeImageReference(image: string): NormalizedImageReference {
+    const original = image;
+    const imageWithoutDigest = image.split("@")[0];
+    const lastSlash = imageWithoutDigest.lastIndexOf("/");
+    const lastColon = imageWithoutDigest.lastIndexOf(":");
+    const hasTag = lastColon > lastSlash;
+    const tag = hasTag ? imageWithoutDigest.slice(lastColon + 1) : "latest";
+    const imageName = hasTag ? imageWithoutDigest.slice(0, lastColon) : imageWithoutDigest;
+    const parts = imageName.split("/");
+    let registry = "registry-1.docker.io";
+    let repository = imageName;
+    let authService: string | undefined = "registry.docker.io";
+
+    if (parts.length > 1 && hasRegistry(parts[0])) {
+        registry = parts.shift() as string;
+        repository = parts.join("/");
+        authService = undefined;
+    } else if (!repository.includes("/")) {
+        repository = `library/${repository}`;
+    }
+
+    if (registry === "docker.io" || registry === "index.docker.io") {
+        registry = "registry-1.docker.io";
+        authService = "registry.docker.io";
+    }
+
+    return {
+        original,
+        registry,
+        repository,
+        tag,
+        manifestUrl: `https://${registry}/v2/${repository}/manifests/${encodeURIComponent(tag)}`,
+        authService,
+    };
+}
 
 /**
  * Generate a decimal integer number from a string
@@ -427,4 +476,3 @@ function traverseYAML(pair : Pair, env : DotenvParseOutput) : void {
         pair.value.value = envsubst(pair.value.value, env);
     }
 }
-

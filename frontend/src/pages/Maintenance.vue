@@ -154,7 +154,7 @@
                         <span class="badge bg-info">{{ queueProgressLabel }}</span>
                     </div>
                 </div>
-                <div v-for="job in queue" :key="job.endpoint + '_' + job.stackName + '_' + job.serviceNames.join(',')" class="maintenance-job">
+                <div v-for="job in queue" :key="queueJobKey(job)" class="maintenance-job">
                     <span class="badge" :class="jobBadgeClass(job.status)">{{ job.status }}</span>
                     <span class="maintenance-job-target">
                         <span>{{ job.agentName }} / {{ job.stackName }}</span>
@@ -366,7 +366,7 @@ export default {
             return this.activeJob ? getComposeTerminalName(this.activeJob.endpoint, this.activeJob.stackName) : "";
         },
         activeTerminalKey() {
-            return this.activeJob ? `${this.activeTerminalName}_${this.activeJob.serviceName}` : "";
+            return this.activeJob ? this.queueJobKey(this.activeJob) : "";
         },
         activeJobLabel() {
             return this.activeJob ? `${this.activeJob.agentName} / ${this.activeJob.stackName} / ${this.activeJob.serviceName}` : "";
@@ -525,6 +525,9 @@ export default {
         getMaintenanceRegistryLabel,
         getMaintenanceRollbackHint,
         getMaintenanceTargetImage,
+        queueJobKey(job) {
+            return JSON.stringify([ job.endpoint, job.stackName, job.targetImage ]);
+        },
         selectAllUpdateable() {
             const selected = {};
             for (const row of this.rows) {

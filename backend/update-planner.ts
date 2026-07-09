@@ -1,17 +1,12 @@
 import yaml from "yaml";
+import { normalizeImageReference, type NormalizedImageReference } from "../common/util-common";
+
+export { normalizeImageReference } from "../common/util-common";
+export type { NormalizedImageReference } from "../common/util-common";
 
 export type UpdateState = "current" | "update-available" | "unknown";
 export type UpdateReasonCode = "no-local-digest" | "no-remote-digest" | "registry-auth" | "registry-timeout" | "registry-error" | "compose-config-error";
 export type UpdatePreflightStatus = "ok" | "warning" | "failed";
-
-export interface NormalizedImageReference {
-    original: string;
-    registry: string;
-    repository: string;
-    tag: string;
-    manifestUrl: string;
-    authService?: string;
-}
 
 export interface ComposeImage {
     service: string;
@@ -54,48 +49,8 @@ const MANIFEST_ACCEPT = [
     "application/vnd.oci.image.manifest.v1+json",
 ].join(", ");
 
-function hasRegistry(part: string) {
-    return part === "localhost" || part.includes(".") || part.includes(":");
-}
-
 function imageWithDigest(image: string, digest: string) {
     return `${image.split("@")[0]}@${digest}`;
-}
-
-export function normalizeImageReference(image: string): NormalizedImageReference {
-    const original = image;
-    const imageWithoutDigest = image.split("@")[0];
-    const lastSlash = imageWithoutDigest.lastIndexOf("/");
-    const lastColon = imageWithoutDigest.lastIndexOf(":");
-    const hasTag = lastColon > lastSlash;
-    const tag = hasTag ? imageWithoutDigest.slice(lastColon + 1) : "latest";
-    const imageName = hasTag ? imageWithoutDigest.slice(0, lastColon) : imageWithoutDigest;
-    const parts = imageName.split("/");
-    let registry = "registry-1.docker.io";
-    let repository = imageName;
-    let authService: string | undefined = "registry.docker.io";
-
-    if (parts.length > 1 && hasRegistry(parts[0])) {
-        registry = parts.shift() as string;
-        repository = parts.join("/");
-        authService = undefined;
-    } else if (!repository.includes("/")) {
-        repository = `library/${repository}`;
-    }
-
-    if (registry === "docker.io" || registry === "index.docker.io") {
-        registry = "registry-1.docker.io";
-        authService = "registry.docker.io";
-    }
-
-    return {
-        original,
-        registry,
-        repository,
-        tag,
-        manifestUrl: `https://${registry}/v2/${repository}/manifests/${encodeURIComponent(tag)}`,
-        authService,
-    };
 }
 
 export function getImageRegistryUrl(image: string) {

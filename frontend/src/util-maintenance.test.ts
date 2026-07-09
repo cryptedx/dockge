@@ -313,13 +313,13 @@ const sharedImageRows = flattenMaintenanceScan([
                 services: [
                     {
                         service: "web",
-                        image: "nginx:latest",
+                        image: "nginx",
                         status: "update-available",
                         remoteDigest: "sha256:new",
                     },
                     {
                         service: "proxy",
-                        image: "nginx:latest",
+                        image: "docker.io/library/nginx:latest",
                         status: "update-available",
                         remoteDigest: "sha256:new",
                     },
@@ -366,8 +366,30 @@ const collisionRows = flattenMaintenanceScan([
     },
 ]);
 assert.equal(collisionRows.length, 2);
-assert.equal(collisionRows[0].key, "_a_b_c");
+assert.equal(collisionRows[0].key, "[\"\",\"a_b\",\"c\"]");
 assert.equal(collisionRows[1].key, "[\"\",\"a\",\"b_c\"]");
+
+const reversedCollisionRows = flattenMaintenanceScan([
+    {
+        endpoint: "",
+        name: "Current",
+        ok: true,
+        stacks: [ ...collisionRows ]
+            .reverse()
+            .map((row) => ({
+                name: row.stackName,
+                services: [
+                    {
+                        service: row.service,
+                        image: row.image,
+                        status: row.status,
+                    },
+                ],
+            })),
+    },
+]);
+const collisionKeys = (items: typeof collisionRows) => Object.fromEntries(items.map((row) => [ `${row.stackName}/${row.service}`, row.key ]));
+assert.deepEqual(collisionKeys(reversedCollisionRows), collisionKeys(collisionRows));
 
 const completedService = {
     ...rows[0],

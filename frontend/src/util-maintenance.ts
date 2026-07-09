@@ -1,3 +1,5 @@
+import { normalizeImageReference } from "../../common/util-common";
+
 export type MaintenanceStatus = "current" | "update-available" | "unknown";
 export type MaintenanceJobStatus = "queued" | "running" | "done" | "failed" | "preview";
 export type MaintenanceReasonCode = "no-local-digest" | "no-remote-digest" | "registry-auth" | "registry-timeout" | "registry-error" | "compose-config-error";
@@ -164,32 +166,48 @@ export function isMaintenanceImageOlderThanDays(service: MaintenanceService, day
 }
 
 export function flattenMaintenanceScan(scans: MaintenanceScan[]): MaintenanceRow[] {
-    const rows = new Map<string, MaintenanceRow>();
+    const entries: Array<{
+        scan: MaintenanceScan;
+        stack: MaintenanceScan["stacks"][number];
+        service: MaintenanceService;
+        baseKey: string;
+        identityKey: string;
+    }> = [];
+    const identitiesByBaseKey = new Map<string, Set<string>>();
+
     for (const scan of scans) {
         for (const stack of scan.stacks) {
             for (const service of stack.services) {
                 const baseKey = maintenanceKey(scan.endpoint, stack.name, service.service);
-                const existing = rows.get(baseKey);
-                const key = existing && (
-                    existing.endpoint !== scan.endpoint
-                    || existing.stackName !== stack.name
-                    || existing.service !== service.service
-                )
-                    ? JSON.stringify([ scan.endpoint, stack.name, service.service ])
-                    : baseKey;
-                const row = {
-                    ...service,
-                    key,
-                    endpoint: scan.endpoint,
-                    agentName: scan.name,
-                    stackName: stack.name,
-                    selectable: service.status === "update-available",
-                    preflight: stack.preflight,
-                };
-                if (!rows.has(key) || service.status === "update-available") {
-                    rows.set(key, row);
-                }
+                const identityKey = JSON.stringify([ scan.endpoint, stack.name, service.service ]);
+                const identities = identitiesByBaseKey.get(baseKey) ?? new Set<string>();
+                identities.add(identityKey);
+                identitiesByBaseKey.set(baseKey, identities);
+                entries.push({
+                    scan,
+                    stack,
+                    service,
+                    baseKey,
+                    identityKey,
+                });
             }
+        }
+    }
+
+    const rows = new Map<string, MaintenanceRow>();
+    for (const { scan, stack, service, baseKey, identityKey } of entries) {
+        const key = identitiesByBaseKey.get(baseKey)?.size === 1 ? baseKey : identityKey;
+        const row = {
+            ...service,
+            key,
+            endpoint: scan.endpoint,
+            agentName: scan.name,
+            stackName: stack.name,
+            selectable: service.status === "update-available",
+            preflight: stack.preflight,
+        };
+        if (!rows.has(key) || service.status === "update-available") {
+            rows.set(key, row);
         }
     }
     return [ ...rows.values() ];
@@ -261,7 +279,15 @@ export function buildMaintenanceQueue(rows: MaintenanceRow[], selected: Record<s
         }
 
         const targetImage = getMaintenanceTargetImage(row);
-        const jobKey = JSON.stringify([ row.endpoint, row.stackName, targetImage ]);
+        const image = normalizeImageReference(row.image);
+        const jobKey = JSON.stringify([
+            row.endpoint,
+            row.stackName,
+            image.registry,
+            image.repository,
+            image.tag,
+            row.remoteDigest || "",
+        ]);
         const existingJob = jobs.get(jobKey);
         if (existingJob) {
             existingJob.serviceNames.push(row.service);

@@ -552,6 +552,7 @@ export class Stack {
 
     async update(socket: DockgeSocket, serviceNames: string[] = []) {
         const previousComposeYAML = this.composeYAML;
+        let runtimeUpdateStarted = false;
         try {
             const updateCheck = await this.checkUpdates(serviceNames);
             if (updateCheck.preflight.status === "failed") {
@@ -574,18 +575,21 @@ export class Stack {
                 return exitCode;
             }
 
+            runtimeUpdateStarted = true;
             exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("up", "-d", "--remove-orphans", ...serviceNames), this.path);
             if (exitCode !== 0) {
                 throw new Error("Failed to restart, please check the terminal output for more information.");
             }
             return exitCode;
         } catch (error) {
-            if (this._composeYAML !== previousComposeYAML) {
+            if (!runtimeUpdateStarted && this._composeYAML !== previousComposeYAML) {
                 this._composeYAML = previousComposeYAML;
                 try {
                     this.writeComposeYAML();
                 } catch (restoreError) {
-                    log.error("update", restoreError);
+                    const updateMessage = error instanceof Error ? error.message : String(error);
+                    const restoreMessage = restoreError instanceof Error ? restoreError.message : String(restoreError);
+                    throw new Error(`${updateMessage}; failed to restore compose file: ${restoreMessage}`);
                 }
             }
             throw error;

@@ -23,3 +23,5 @@ assert.match(source, /import Terminal from "\.\.\/components\/Terminal\.vue";/);
 assert.match(source, /getComposeTerminalName,\s+PROGRESS_TERMINAL_ROWS/s);
 assert.match(source, /<Terminal[\s\S]*:name="activeTerminalName"/);
 assert.match(source, /queueProgressLabel\(\)[\s\S]*image/);
+assert.match(source, /:key="queueJobKey\(job\)"/);
+assert.match(source, /queueJobKey\(job\)\s*\{[\s\S]*JSON\.stringify/);

@@ -216,6 +216,7 @@ import {
     getMaintenanceTargetImage,
     isMaintenanceImageOlderThanDays,
     isCurrentMaintenanceScan,
+    isMaintenanceSnapshotFresh,
     MAINTENANCE_SNAPSHOT_KEY,
     MAINTENANCE_SNAPSHOT_UPDATED_EVENT,
     markMaintenanceQueuePreview,
@@ -648,9 +649,12 @@ export default {
             if (!snapshot) {
                 return;
             }
+            this.history = snapshot.history || {};
+            if (!isMaintenanceSnapshotFresh(snapshot)) {
+                return;
+            }
             this.scanResults = snapshot.scanResults;
             this.selected = snapshot.selected;
-            this.history = snapshot.history || {};
         },
         saveSnapshot() {
             if (!this.scanResults.length) {
@@ -660,6 +664,7 @@ export default {
                 scanResults: this.scanResults,
                 selected: this.selected,
                 history: this.history,
+                scannedAt: new Date().toISOString(),
             }));
             window.dispatchEvent(new Event(MAINTENANCE_SNAPSHOT_UPDATED_EVENT));
         },

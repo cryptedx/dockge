@@ -1073,7 +1073,10 @@ export default {
                 return;
             }
 
-            localStorage.setItem(MAINTENANCE_SNAPSHOT_KEY, JSON.stringify(snapshot));
+            localStorage.setItem(MAINTENANCE_SNAPSHOT_KEY, JSON.stringify({
+                ...snapshot,
+                scannedAt: new Date().toISOString(),
+            }));
             window.dispatchEvent(new Event(MAINTENANCE_SNAPSHOT_UPDATED_EVENT));
         },
 

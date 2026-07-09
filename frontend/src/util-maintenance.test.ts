@@ -14,9 +14,11 @@ import {
     getMaintenanceSnapshotStack,
     getMaintenanceSnapshotStackUpdateCount,
     getMaintenanceTargetImage,
+    isMaintenanceSnapshotFresh,
     isMaintenanceImageOlderThanDays,
     isCurrentMaintenanceScan,
     markMaintenanceQueuePreview,
+    MAINTENANCE_SNAPSHOT_MAX_AGE,
     parseMaintenanceSnapshot,
     recordMaintenanceHistory,
     replaceMaintenanceSnapshotStack,
@@ -84,6 +86,11 @@ const scans = [
 ];
 
 const rows = flattenMaintenanceScan(scans);
+const freshSnapshot = {
+    scanResults: scans,
+    selected: {},
+    scannedAt: new Date().toISOString(),
+};
 assert.equal(rows.length, 4);
 assert.equal(rows[0].key, "_media_plex");
 assert.equal(getMaintenanceDisplayImage(rows[0]), "plex:latest@sha256:new");
@@ -139,6 +146,7 @@ assert.deepEqual(parseMaintenanceSnapshot(JSON.stringify({
     selected: {
         "_media_plex": true,
     },
+    scannedAt: "2026-07-09T12:00:00Z",
     history: {
         "_media_plex": {
             status: "done",
@@ -150,6 +158,7 @@ assert.deepEqual(parseMaintenanceSnapshot(JSON.stringify({
     selected: {
         "_media_plex": true,
     },
+    scannedAt: "2026-07-09T12:00:00Z",
     history: {
         "_media_plex": {
             status: "done",
@@ -157,23 +166,15 @@ assert.deepEqual(parseMaintenanceSnapshot(JSON.stringify({
         },
     },
 });
-assert.deepEqual(getMaintenanceSnapshotStack({
-    scanResults: scans,
-    selected: {},
-}, "tcp://agent:5001", "tools"), {
+assert.deepEqual(getMaintenanceSnapshotStack(freshSnapshot, "tcp://agent:5001", "tools"), {
     services: scans[1].stacks[0].services,
 });
-assert.equal(getMaintenanceSnapshotStackUpdateCount({
-    scanResults: scans,
-    selected: {},
-}, "", "media"), 1);
-assert.equal(getMaintenanceSnapshotStackUpdateCount({
-    scanResults: scans,
-    selected: {},
-}, "tcp://agent:5001", "tools"), 1);
+assert.equal(getMaintenanceSnapshotStackUpdateCount(freshSnapshot, "", "media"), 1);
+assert.equal(getMaintenanceSnapshotStackUpdateCount(freshSnapshot, "tcp://agent:5001", "tools"), 1);
 const refreshedSnapshot = structuredClone({
     scanResults: scans,
     selected: {},
+    scannedAt: new Date().toISOString(),
 });
 assert.equal(replaceMaintenanceSnapshotStack(refreshedSnapshot, "", "media", {
     services: [
@@ -191,16 +192,23 @@ assert.equal(replaceMaintenanceSnapshotStack(refreshedSnapshot, "", "media", {
 }), true);
 assert.equal(getMaintenanceSnapshotStackUpdateCount(refreshedSnapshot, "", "media"), 0);
 assert.equal(replaceMaintenanceSnapshotStack(refreshedSnapshot, "", "missing", { services: [] }), false);
-assert.equal(getMaintenanceSnapshotStack(undefined, "", "media"), undefined);
-assert.equal(getMaintenanceSnapshotStack({
-    scanResults: scans,
-    selected: {},
-}, "", "missing"), undefined);
-assert.equal(getMaintenanceSnapshotStackUpdateCount(undefined, "", "media"), 0);
+assert.equal(isMaintenanceSnapshotFresh({
+    ...freshSnapshot,
+    scannedAt: "2026-07-09T12:00:00Z",
+}, Date.parse("2026-07-09T12:05:00Z")), true);
+assert.equal(isMaintenanceSnapshotFresh({
+    ...freshSnapshot,
+    scannedAt: "2026-07-09T12:00:00Z",
+}, Date.parse("2026-07-09T12:05:00Z") + 1), false);
 assert.equal(getMaintenanceSnapshotStackUpdateCount({
-    scanResults: scans,
-    selected: {},
-}, "", "missing"), 0);
+    ...freshSnapshot,
+    scannedAt: new Date(Date.now() - MAINTENANCE_SNAPSHOT_MAX_AGE - 1).toISOString(),
+}, "", "media"), 0);
+assert.equal(MAINTENANCE_SNAPSHOT_MAX_AGE, 5 * 60 * 1000);
+assert.equal(getMaintenanceSnapshotStack(undefined, "", "media"), undefined);
+assert.equal(getMaintenanceSnapshotStack(freshSnapshot, "", "missing"), undefined);
+assert.equal(getMaintenanceSnapshotStackUpdateCount(undefined, "", "media"), 0);
+assert.equal(getMaintenanceSnapshotStackUpdateCount(freshSnapshot, "", "missing"), 0);
 
 assert.deepEqual(getMaintenanceSummary(rows, scans), {
     agents: 3,

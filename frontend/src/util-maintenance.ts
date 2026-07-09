@@ -63,6 +63,7 @@ export interface MaintenanceSnapshot {
     scanResults: MaintenanceScan[];
     selected: Record<string, boolean>;
     history?: Record<string, MaintenanceHistoryEntry>;
+    scannedAt?: string;
 }
 
 export interface MaintenanceHistoryEntry {
@@ -74,6 +75,7 @@ export interface MaintenanceHistoryEntry {
 
 export const MAINTENANCE_SNAPSHOT_KEY = "dockge.maintenance.lastScan";
 export const MAINTENANCE_SNAPSHOT_UPDATED_EVENT = "dockge.maintenance.snapshotUpdated";
+export const MAINTENANCE_SNAPSHOT_MAX_AGE = 5 * 60 * 1000;
 
 export function maintenanceKey(endpoint: string, stackName: string, serviceName: string) {
     return `${endpoint}_${stackName}_${serviceName}`;
@@ -248,13 +250,23 @@ export function parseMaintenanceSnapshot(value: string | null): MaintenanceSnaps
             scanResults: snapshot.scanResults,
             selected: snapshot.selected,
             history: typeof snapshot.history === "object" && snapshot.history !== null ? snapshot.history : undefined,
+            ...(typeof snapshot.scannedAt === "string" ? { scannedAt: snapshot.scannedAt } : {}),
         };
     } catch {
         return undefined;
     }
 }
 
+export function isMaintenanceSnapshotFresh(snapshot: MaintenanceSnapshot | undefined, now = Date.now()) {
+    const scannedAt = Date.parse(snapshot?.scannedAt || "");
+    const age = now - scannedAt;
+    return Number.isFinite(scannedAt) && age >= 0 && age <= MAINTENANCE_SNAPSHOT_MAX_AGE;
+}
+
 export function getMaintenanceSnapshotStack(snapshot: MaintenanceSnapshot | undefined, endpoint: string, stackName: string) {
+    if (!isMaintenanceSnapshotFresh(snapshot)) {
+        return undefined;
+    }
     const scan = snapshot?.scanResults.find((item) => item.endpoint === endpoint);
     const stack = scan?.stacks.find((item) => item.name === stackName);
     if (!stack) {
@@ -271,6 +283,9 @@ export function getMaintenanceSnapshotStackUpdateCount(snapshot: MaintenanceSnap
 }
 
 export function replaceMaintenanceSnapshotStack(snapshot: MaintenanceSnapshot | undefined, endpoint: string, stackName: string, updates: Pick<MaintenanceScan["stacks"][number], "preflight" | "services">) {
+    if (!isMaintenanceSnapshotFresh(snapshot)) {
+        return false;
+    }
     const scan = snapshot?.scanResults.find((item) => item.endpoint === endpoint);
     const stack = scan?.stacks.find((item) => item.name === stackName);
     if (!stack) {

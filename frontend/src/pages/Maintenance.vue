@@ -564,37 +564,51 @@ export default {
             this.queueRunning = true;
             nextJob.status = "running";
             this.$nextTick(() => this.$root.emitAgent(nextJob.endpoint, "applyStackServiceUpdates", nextJob.stackName, nextJob.serviceNames, (res) => {
-                if (res.ok) {
-                    nextJob.status = "done";
-                    this.markJobServicesCurrent(nextJob);
-                    this.history = recordMaintenanceHistory(this.history, this.rows, nextJob, "done");
-                } else {
-                    nextJob.status = "failed";
-                    nextJob.error = res.msg || "Update failed";
-                    this.history = recordMaintenanceHistory(this.history, this.rows, nextJob, "failed", new Date().toISOString(), nextJob.error);
+                if (!res.ok) {
+                    this.finishJob(nextJob, "failed", res.msg || "Update failed");
+                    return;
                 }
-                this.saveSnapshot();
-                this.runNextJob();
+                this.verifyJobUpdate(nextJob);
             }));
         },
-        markJobServicesCurrent(job) {
-            const scan = this.scanResults.find((item) => item.endpoint === job.endpoint);
-            const stack = scan?.stacks.find((item) => item.name === job.stackName);
-            if (!stack) {
-                return;
-            }
-            const serviceNames = new Set(job.serviceNames);
-            for (const service of stack.services) {
-                if (serviceNames.has(service.service)) {
-                    service.status = "current";
-                    service.reason = undefined;
-                    if (service.remoteDigest) {
-                        service.localDigests = [ service.remoteDigest ];
-                    }
+        verifyJobUpdate(job) {
+            this.$root.emitAgent(job.endpoint, "checkStackUpdates", job.stackName, (res) => {
+                if (!res.ok) {
+                    this.finishJob(job, "failed", res.msg || "Update verification failed");
+                    return;
                 }
+
+                const scan = this.scanResults.find((item) => item.endpoint === job.endpoint);
+                const stack = scan?.stacks.find((item) => item.name === job.stackName);
+                if (!stack) {
+                    this.finishJob(job, "failed", "Updated stack was not found in the scan results");
+                    return;
+                }
+
+                stack.preflight = res.updates.preflight;
+                stack.services = res.updates.services;
+                this.scanResults = [ ...this.scanResults ];
+
+                const statusByService = new Map(res.updates.services.map((service) => [ service.service, service.status ]));
+                const unresolvedServices = job.serviceNames.filter((serviceName) => statusByService.get(serviceName) !== "current");
+                if (unresolvedServices.length > 0) {
+                    this.finishJob(job, "failed", `Update verification still reports: ${unresolvedServices.join(", ")}`);
+                    return;
+                }
+
+                this.finishJob(job, "done");
+            });
+        },
+        finishJob(job, status, error) {
+            job.status = status;
+            if (status === "done") {
+                this.history = recordMaintenanceHistory(this.history, this.rows, job, "done");
+            } else {
+                job.error = error;
+                this.history = recordMaintenanceHistory(this.history, this.rows, job, "failed", new Date().toISOString(), error);
             }
-            this.scanResults = [ ...this.scanResults ];
             this.saveSnapshot();
+            this.runNextJob();
         },
         statusLabel(status) {
             if (status === "update-available") {

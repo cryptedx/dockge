@@ -860,10 +860,9 @@ export default {
 
 .maintenance-batch {
     bottom: 16px;
-    left: 50%;
+    margin-inline: auto;
     padding: 12px 16px;
     position: sticky;
-    transform: translateX(-50%);
     width: min(760px, 100%);
     z-index: 10;
 }

@@ -401,7 +401,9 @@ import {
 import {
     getMaintenanceSnapshotStack,
     MAINTENANCE_SNAPSHOT_KEY,
+    MAINTENANCE_SNAPSHOT_UPDATED_EVENT,
     parseMaintenanceSnapshot,
+    replaceMaintenanceSnapshotStack,
 } from "../util-maintenance";
 
 const template = `
@@ -1043,6 +1045,9 @@ export default {
             this.$root.emitAgent(this.endpoint, "updateStack", this.stack.name, (res) => {
                 this.processing = false;
                 this.$root.toastRes(res);
+                if (res.ok) {
+                    this.scanStackUpdates();
+                }
             });
         },
 
@@ -1054,11 +1059,22 @@ export default {
                 this.updateScanRunning = false;
                 if (res.ok) {
                     this.updateCheck = res.updates;
+                    this.syncMaintenanceSnapshot(res.updates);
                     this.selectUpdateableServices();
                 } else {
                     this.$root.toastRes(res);
                 }
             });
+        },
+
+        syncMaintenanceSnapshot(updates) {
+            const snapshot = parseMaintenanceSnapshot(localStorage.getItem(MAINTENANCE_SNAPSHOT_KEY));
+            if (!replaceMaintenanceSnapshotStack(snapshot, this.endpoint, this.stack.name, updates)) {
+                return;
+            }
+
+            localStorage.setItem(MAINTENANCE_SNAPSHOT_KEY, JSON.stringify(snapshot));
+            window.dispatchEvent(new Event(MAINTENANCE_SNAPSHOT_UPDATED_EVENT));
         },
 
         applySelectedUpdates() {

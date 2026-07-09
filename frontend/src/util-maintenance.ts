@@ -270,6 +270,18 @@ export function getMaintenanceSnapshotStackUpdateCount(snapshot: MaintenanceSnap
         ?.services.filter((service) => service.status === "update-available").length || 0;
 }
 
+export function replaceMaintenanceSnapshotStack(snapshot: MaintenanceSnapshot | undefined, endpoint: string, stackName: string, updates: Pick<MaintenanceScan["stacks"][number], "preflight" | "services">) {
+    const scan = snapshot?.scanResults.find((item) => item.endpoint === endpoint);
+    const stack = scan?.stacks.find((item) => item.name === stackName);
+    if (!stack) {
+        return false;
+    }
+
+    stack.preflight = updates.preflight;
+    stack.services = updates.services;
+    return true;
+}
+
 export function buildMaintenanceQueue(rows: MaintenanceRow[], selected: Record<string, boolean>): MaintenanceUpdateJob[] {
     const jobs = new Map<string, MaintenanceUpdateJob>();
 

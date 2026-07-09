@@ -19,6 +19,7 @@ import {
     markMaintenanceQueuePreview,
     parseMaintenanceSnapshot,
     recordMaintenanceHistory,
+    replaceMaintenanceSnapshotStack,
 } from "./util-maintenance";
 
 const scans = [
@@ -170,6 +171,26 @@ assert.equal(getMaintenanceSnapshotStackUpdateCount({
     scanResults: scans,
     selected: {},
 }, "tcp://agent:5001", "tools"), 1);
+const refreshedSnapshot = structuredClone({
+    scanResults: scans,
+    selected: {},
+});
+assert.equal(replaceMaintenanceSnapshotStack(refreshedSnapshot, "", "media", {
+    services: [
+        {
+            service: "plex",
+            image: "plex:latest",
+            status: "current",
+        },
+        {
+            service: "db",
+            image: "postgres:16",
+            status: "current",
+        },
+    ],
+}), true);
+assert.equal(getMaintenanceSnapshotStackUpdateCount(refreshedSnapshot, "", "media"), 0);
+assert.equal(replaceMaintenanceSnapshotStack(refreshedSnapshot, "", "missing", { services: [] }), false);
 assert.equal(getMaintenanceSnapshotStack(undefined, "", "media"), undefined);
 assert.equal(getMaintenanceSnapshotStack({
     scanResults: scans,

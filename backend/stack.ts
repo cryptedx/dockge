@@ -499,13 +499,17 @@ export class Stack {
         return exitCode;
     }
 
-    async checkUpdates() : Promise<StackUpdateCheck> {
+    async checkUpdates(serviceNames: string[] = []) : Promise<StackUpdateCheck> {
         const configResult = await execFileAsync("docker", this.getComposeOptions("config", "--format", "json"), {
             cwd: this.path,
             encoding: "utf-8",
             maxBuffer: 10 * 1024 * 1024,
         });
-        const services = extractComposeImages(JSON.parse(configResult.stdout.toString()));
+        const configuredServices = extractComposeImages(JSON.parse(configResult.stdout.toString()));
+        const selectedServices = new Set(serviceNames);
+        const services = serviceNames.length > 0
+            ? configuredServices.filter((service) => selectedServices.has(service.service))
+            : configuredServices;
         const preflight = await this.checkUpdatePreflight();
         const results: StackUpdateService[] = [];
 
@@ -547,32 +551,45 @@ export class Stack {
     }
 
     async update(socket: DockgeSocket, serviceNames: string[] = []) {
-        const updateCheck = await this.checkUpdates();
-        if (updateCheck.preflight.status === "failed") {
-            const failed = updateCheck.preflight.checks.find((check) => check.status === "failed");
-            throw new Error(`Preflight failed: ${failed?.message || "Update cannot start"}`);
-        }
-        this.assertSelectedServicesUpdateable(updateCheck.services, serviceNames);
-        await this.updatePinnedImageDigests(serviceNames, updateCheck.services);
+        const previousComposeYAML = this.composeYAML;
+        try {
+            const updateCheck = await this.checkUpdates(serviceNames);
+            if (updateCheck.preflight.status === "failed") {
+                const failed = updateCheck.preflight.checks.find((check) => check.status === "failed");
+                throw new Error(`Preflight failed: ${failed?.message || "Update cannot start"}`);
+            }
+            this.assertSelectedServicesUpdateable(updateCheck.services, serviceNames);
+            await this.updatePinnedImageDigests(serviceNames, updateCheck.services);
 
-        const terminalName = getComposeTerminalName(socket.endpoint, this.name);
-        let exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("pull", ...serviceNames), this.path);
-        if (exitCode !== 0) {
-            throw new Error("Failed to pull, please check the terminal output for more information.");
-        }
+            const terminalName = getComposeTerminalName(socket.endpoint, this.name);
+            let exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("pull", ...serviceNames), this.path);
+            if (exitCode !== 0) {
+                throw new Error("Failed to pull, please check the terminal output for more information.");
+            }
 
-        // If the stack is not running, we don't need to restart it
-        await this.updateStatus();
-        log.debug("update", "Status: " + this.status);
-        if (this.status !== RUNNING) {
+            // If the stack is not running, we don't need to restart it
+            await this.updateStatus();
+            log.debug("update", "Status: " + this.status);
+            if (this.status !== RUNNING) {
+                return exitCode;
+            }
+
+            exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("up", "-d", "--remove-orphans", ...serviceNames), this.path);
+            if (exitCode !== 0) {
+                throw new Error("Failed to restart, please check the terminal output for more information.");
+            }
             return exitCode;
+        } catch (error) {
+            if (this._composeYAML !== previousComposeYAML) {
+                this._composeYAML = previousComposeYAML;
+                try {
+                    this.writeComposeYAML();
+                } catch (restoreError) {
+                    log.error("update", restoreError);
+                }
+            }
+            throw error;
         }
-
-        exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("up", "-d", "--remove-orphans", ...serviceNames), this.path);
-        if (exitCode !== 0) {
-            throw new Error("Failed to restart, please check the terminal output for more information.");
-        }
-        return exitCode;
     }
 
     private assertSelectedServicesUpdateable(services: StackUpdateService[], serviceNames: string[]) {

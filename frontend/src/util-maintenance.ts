@@ -86,11 +86,11 @@ export function getMaintenanceDisplayImage(service: MaintenanceService) {
 }
 
 export function getMaintenanceCurrentImage(service: MaintenanceService) {
-    if (service.rollbackImage) {
-        return service.rollbackImage;
-    }
     if (service.localDigests?.[0]) {
         return imageWithDigest(service.image, service.localDigests[0]);
+    }
+    if (service.rollbackImage) {
+        return service.rollbackImage;
     }
     return service.image;
 }
@@ -168,7 +168,15 @@ export function flattenMaintenanceScan(scans: MaintenanceScan[]): MaintenanceRow
     for (const scan of scans) {
         for (const stack of scan.stacks) {
             for (const service of stack.services) {
-                const key = maintenanceKey(scan.endpoint, stack.name, service.service);
+                const baseKey = maintenanceKey(scan.endpoint, stack.name, service.service);
+                const existing = rows.get(baseKey);
+                const key = existing && (
+                    existing.endpoint !== scan.endpoint
+                    || existing.stackName !== stack.name
+                    || existing.service !== service.service
+                )
+                    ? JSON.stringify([ scan.endpoint, stack.name, service.service ])
+                    : baseKey;
                 const row = {
                     ...service,
                     key,
@@ -245,26 +253,35 @@ export function getMaintenanceSnapshotStackUpdateCount(snapshot: MaintenanceSnap
 }
 
 export function buildMaintenanceQueue(rows: MaintenanceRow[], selected: Record<string, boolean>): MaintenanceUpdateJob[] {
-    const jobs: MaintenanceUpdateJob[] = [];
+    const jobs = new Map<string, MaintenanceUpdateJob>();
 
     for (const row of rows) {
         if (!selected[row.key] || !row.selectable) {
             continue;
         }
 
-        jobs.push({
+        const targetImage = getMaintenanceTargetImage(row);
+        const jobKey = JSON.stringify([ row.endpoint, row.stackName, targetImage ]);
+        const existingJob = jobs.get(jobKey);
+        if (existingJob) {
+            existingJob.serviceNames.push(row.service);
+            existingJob.serviceName = existingJob.serviceNames.join(", ");
+            continue;
+        }
+
+        jobs.set(jobKey, {
             endpoint: row.endpoint,
             agentName: row.agentName,
             stackName: row.stackName,
             serviceName: row.service,
             serviceNames: [ row.service ],
             image: row.image,
-            targetImage: getMaintenanceTargetImage(row),
+            targetImage,
             status: "queued",
         });
     }
 
-    return jobs;
+    return [ ...jobs.values() ];
 }
 
 export function markMaintenanceQueuePreview(queue: MaintenanceUpdateJob[]): MaintenanceUpdateJob[] {

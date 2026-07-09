@@ -154,7 +154,7 @@
                         <span class="badge bg-info">{{ queueProgressLabel }}</span>
                     </div>
                 </div>
-                <div v-for="job in queue" :key="`${job.endpoint}_${job.stackName}_${job.serviceName}`" class="maintenance-job">
+                <div v-for="job in queue" :key="job.endpoint + '_' + job.stackName + '_' + job.serviceNames.join(',')" class="maintenance-job">
                     <span class="badge" :class="jobBadgeClass(job.status)">{{ job.status }}</span>
                     <span class="maintenance-job-target">
                         <span>{{ job.agentName }} / {{ job.stackName }}</span>
@@ -344,20 +344,20 @@ export default {
             }
             return "finished";
         },
-        queueServiceTotal() {
-            return this.queue.reduce((total, job) => total + job.serviceNames.length, 0);
+        queueImageTotal() {
+            return this.queue.length;
         },
-        queueServiceComplete() {
+        queueImageComplete() {
             if (this.queue.length > 0 && this.queue.every((job) => job.status === "preview")) {
-                return this.queueServiceTotal;
+                return this.queueImageTotal;
             }
             return this.queue
                 .filter((job) => job.status === "done" || job.status === "failed")
-                .reduce((total, job) => total + job.serviceNames.length, 0);
+                .length;
         },
         queueProgressLabel() {
-            const label = this.queueServiceTotal === 1 ? "image" : "images";
-            return `${this.queueServiceComplete} / ${this.queueServiceTotal} ${label}`;
+            const label = this.queueImageTotal === 1 ? "image" : "images";
+            return `${this.queueImageComplete} / ${this.queueImageTotal} ${label}`;
         },
         activeJob() {
             return this.queue.find((job) => job.status === "running") || null;
@@ -584,6 +584,9 @@ export default {
                 if (serviceNames.has(service.service)) {
                     service.status = "current";
                     service.reason = undefined;
+                    if (service.remoteDigest) {
+                        service.localDigests = [ service.remoteDigest ];
+                    }
                 }
             }
             this.scanResults = [ ...this.scanResults ];

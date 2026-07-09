@@ -301,3 +301,77 @@ assert.deepEqual(history["_media_plex"], {
     rollbackImage: "plex:latest@sha256:old",
 });
 assert.equal(getMaintenanceHistoryLabel(history["_media_plex"]), "Done");
+
+const sharedImageRows = flattenMaintenanceScan([
+    {
+        endpoint: "",
+        name: "Current",
+        ok: true,
+        stacks: [
+            {
+                name: "shared",
+                services: [
+                    {
+                        service: "web",
+                        image: "nginx:latest",
+                        status: "update-available",
+                        remoteDigest: "sha256:new",
+                    },
+                    {
+                        service: "proxy",
+                        image: "nginx:latest",
+                        status: "update-available",
+                        remoteDigest: "sha256:new",
+                    },
+                ],
+            },
+        ],
+    },
+]);
+const sharedImageQueue = buildMaintenanceQueue(sharedImageRows, {
+    [sharedImageRows[0].key]: true,
+    [sharedImageRows[1].key]: true,
+});
+assert.equal(sharedImageQueue.length, 1);
+assert.deepEqual(sharedImageQueue[0].serviceNames, [ "web", "proxy" ]);
+assert.equal(sharedImageQueue[0].serviceName, "web, proxy");
+
+const collisionRows = flattenMaintenanceScan([
+    {
+        endpoint: "",
+        name: "Current",
+        ok: true,
+        stacks: [
+            {
+                name: "a_b",
+                services: [
+                    {
+                        service: "c",
+                        image: "nginx:latest",
+                        status: "update-available",
+                    },
+                ],
+            },
+            {
+                name: "a",
+                services: [
+                    {
+                        service: "b_c",
+                        image: "redis:latest",
+                        status: "update-available",
+                    },
+                ],
+            },
+        ],
+    },
+]);
+assert.equal(collisionRows.length, 2);
+assert.equal(collisionRows[0].key, "_a_b_c");
+assert.equal(collisionRows[1].key, "[\"\",\"a\",\"b_c\"]");
+
+const completedService = {
+    ...rows[0],
+    status: "current" as const,
+    localDigests: [ "sha256:new" ],
+};
+assert.equal(getMaintenanceCurrentImage(completedService), "plex:latest@sha256:new");

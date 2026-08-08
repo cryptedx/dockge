@@ -9,6 +9,8 @@ assert.doesNotMatch(source, /this\.scanAllAgents\(false\);/);
 assert.match(source, /queueProgressLabel\(\)/);
 assert.match(source, /this\.verifyJobUpdate\(nextJob\);/);
 assert.match(source, /emitAgent\(job\.endpoint, "checkStackUpdates", job\.stackName/);
+assert.match(source, /replaceMaintenanceScanStack\(this\.scanResults, job\.endpoint, job\.stackName, res\.updates\)/);
+assert.doesNotMatch(source, /stack\.services\s*=\s*res\.updates\.services/);
 assert.match(source, /<th>New Image Age<\/th>/);
 assert.match(source, /getMaintenanceImageAge\(row\)/);
 assert.match(source, /v-model="dryRun"/);

@@ -283,6 +283,43 @@ export function getMaintenanceSnapshotStackUpdateCount(snapshot: MaintenanceSnap
         ?.services.filter((service) => service.status === "update-available").length || 0;
 }
 
+export function replaceMaintenanceScanStack(
+    scans: MaintenanceScan[],
+    endpoint: string,
+    stackName: string,
+    updates: Pick<MaintenanceScan["stacks"][number], "preflight" | "services">
+) {
+    let replaced = false;
+    const nextScans = scans.map((scan) => {
+        if (scan.endpoint !== endpoint) {
+            return scan;
+        }
+
+        let stackReplaced = false;
+        const nextStacks = scan.stacks.map((stack) => {
+            if (stack.name !== stackName) {
+                return stack;
+            }
+            stackReplaced = true;
+            return {
+                ...stack,
+                ...updates,
+            };
+        });
+        if (!stackReplaced) {
+            return scan;
+        }
+
+        replaced = true;
+        return {
+            ...scan,
+            stacks: nextStacks,
+        };
+    });
+
+    return replaced ? nextScans : undefined;
+}
+
 export function replaceMaintenanceSnapshotStack(snapshot: MaintenanceSnapshot | undefined, endpoint: string, stackName: string, updates: Pick<MaintenanceScan["stacks"][number], "preflight" | "services">) {
     if (!isMaintenanceSnapshotFresh(snapshot)) {
         return false;

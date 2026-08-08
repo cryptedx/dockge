@@ -222,6 +222,7 @@ import {
     markMaintenanceQueuePreview,
     parseMaintenanceSnapshot,
     recordMaintenanceHistory,
+    replaceMaintenanceScanStack,
 } from "../util-maintenance";
 
 export default {
@@ -578,16 +579,13 @@ export default {
                     return;
                 }
 
-                const scan = this.scanResults.find((item) => item.endpoint === job.endpoint);
-                const stack = scan?.stacks.find((item) => item.name === job.stackName);
-                if (!stack) {
+                const nextScanResults = replaceMaintenanceScanStack(this.scanResults, job.endpoint, job.stackName, res.updates);
+                if (!nextScanResults) {
                     this.finishJob(job, "failed", "Updated stack was not found in the scan results");
                     return;
                 }
 
-                stack.preflight = res.updates.preflight;
-                stack.services = res.updates.services;
-                this.scanResults = [ ...this.scanResults ];
+                this.scanResults = nextScanResults;
 
                 const statusByService = new Map(res.updates.services.map((service) => [ service.service, service.status ]));
                 const unresolvedServices = job.serviceNames.filter((serviceName) => statusByService.get(serviceName) !== "current");

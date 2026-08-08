@@ -21,6 +21,7 @@ import {
     MAINTENANCE_SNAPSHOT_MAX_AGE,
     parseMaintenanceSnapshot,
     recordMaintenanceHistory,
+    replaceMaintenanceScanStack,
     replaceMaintenanceSnapshotStack,
 } from "./util-maintenance";
 
@@ -171,6 +172,27 @@ assert.deepEqual(getMaintenanceSnapshotStack(freshSnapshot, "tcp://agent:5001", 
 });
 assert.equal(getMaintenanceSnapshotStackUpdateCount(freshSnapshot, "", "media"), 1);
 assert.equal(getMaintenanceSnapshotStackUpdateCount(freshSnapshot, "tcp://agent:5001", "tools"), 1);
+const refreshedScans = replaceMaintenanceScanStack(scans, "", "media", {
+    services: [
+        {
+            service: "plex",
+            image: "plex:latest@sha256:new",
+            status: "current",
+            localDigests: [ "sha256:new" ],
+            remoteDigest: "sha256:new",
+        },
+        {
+            service: "db",
+            image: "postgres:16",
+            status: "current",
+        },
+    ],
+});
+assert.ok(refreshedScans);
+assert.notEqual(refreshedScans, scans);
+assert.equal(flattenMaintenanceScan(refreshedScans).find((row) => row.service === "plex")?.status, "current");
+assert.equal(flattenMaintenanceScan(refreshedScans).filter((row) => row.status === "update-available").length, 1);
+assert.equal(replaceMaintenanceScanStack(scans, "", "missing", { services: [] }), undefined);
 const refreshedSnapshot = structuredClone({
     scanResults: scans,
     selected: {},

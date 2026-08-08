@@ -327,9 +327,15 @@ const history = recordMaintenanceHistory({}, rows, {
 assert.deepEqual(history["_media_plex"], {
     status: "done",
     checkedAt: "2026-06-25T12:00:00Z",
+    remoteDigest: "sha256:new",
     rollbackImage: "plex:latest@sha256:old",
 });
-assert.equal(getMaintenanceHistoryLabel(history["_media_plex"]), "Done");
+assert.equal(getMaintenanceHistoryLabel(history["_media_plex"], "sha256:new"), "Done");
+assert.equal(getMaintenanceHistoryLabel(history["_media_plex"], "sha256:other"), "");
+assert.equal(getMaintenanceHistoryLabel({
+    status: "done",
+    checkedAt: "2026-06-25T12:00:00Z",
+}, "sha256:new"), "");
 
 const sharedImageRows = flattenMaintenanceScan([
     {

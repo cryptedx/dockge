@@ -118,8 +118,8 @@
                                     />
                                     <span>{{ row.service }}</span>
                                 </label>
-                                <small v-if="getMaintenanceHistoryLabel(history[row.key])" class="maintenance-history" :title="history[row.key].checkedAt">
-                                    {{ getMaintenanceHistoryLabel(history[row.key]) }}
+                                <small v-if="getMaintenanceHistoryLabel(history[row.key], row.remoteDigest)" class="maintenance-history" :title="history[row.key].checkedAt">
+                                    {{ getMaintenanceHistoryLabel(history[row.key], row.remoteDigest) }}
                                 </small>
                             </td>
                             <td>{{ row.agentName }}</td>

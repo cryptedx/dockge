@@ -69,6 +69,7 @@ export interface MaintenanceSnapshot {
 export interface MaintenanceHistoryEntry {
     status: "done" | "failed" | "preview";
     checkedAt: string;
+    remoteDigest?: string;
     error?: string;
     rollbackImage?: string;
 }
@@ -363,6 +364,7 @@ export function recordMaintenanceHistory(
         nextHistory[row.key] = {
             status,
             checkedAt,
+            ...(row.remoteDigest ? { remoteDigest: row.remoteDigest } : {}),
             rollbackImage: row.rollbackImage || (row.localDigests?.[0] ? imageWithDigest(row.image, row.localDigests[0]) : undefined),
         };
         if (error) {
@@ -372,8 +374,8 @@ export function recordMaintenanceHistory(
     return nextHistory;
 }
 
-export function getMaintenanceHistoryLabel(entry?: MaintenanceHistoryEntry) {
-    if (!entry) {
+export function getMaintenanceHistoryLabel(entry?: MaintenanceHistoryEntry, remoteDigest?: string) {
+    if (!entry || !entry.remoteDigest || entry.remoteDigest !== remoteDigest) {
         return "";
     }
     if (entry.status === "done") {

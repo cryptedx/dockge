@@ -61,3 +61,50 @@ assert.deepEqual(timeoutResponse, {
     ok: false,
     msg: "agent.local: checkStackUpdates timed out after 60s",
 });
+
+for (const eventName of [ "updateStack", "applyStackUpdates", "applyStackServiceUpdates" ]) {
+    let requestedTimeout = 0;
+    let response: unknown;
+
+    await managerWithClient({
+        connected: true,
+        timeout(ms) {
+            requestedTimeout = ms;
+            return this;
+        },
+        emit(event, endpoint, forwardedEvent, stackName, callback) {
+            assert.equal(event, "agent");
+            assert.equal(endpoint, "agent.local");
+            assert.equal(forwardedEvent, eventName);
+            assert.equal(stackName, "example");
+            (callback as Ack)(null, { ok: true });
+        },
+    }).emitToEndpoint("agent.local", eventName, "example", (res: unknown) => {
+        response = res;
+    });
+
+    assert.equal(requestedTimeout, 180_000);
+    assert.deepEqual(response, { ok: true });
+}
+
+let updateTimeoutResponse: unknown;
+await managerWithClient({
+    connected: true,
+    timeout(ms) {
+        assert.equal(ms, 180_000);
+        return this;
+    },
+    emit(event, endpoint, eventName, stackName, callback) {
+        assert.equal(event, "agent");
+        assert.equal(endpoint, "agent.local");
+        assert.equal(eventName, "applyStackServiceUpdates");
+        assert.equal(stackName, "example");
+        (callback as Ack)(new Error("timeout"));
+    },
+}).emitToEndpoint("agent.local", "applyStackServiceUpdates", "example", (res: unknown) => {
+    updateTimeoutResponse = res;
+});
+assert.deepEqual(updateTimeoutResponse, {
+    ok: false,
+    msg: "agent.local: applyStackServiceUpdates timed out after 180s",
+});

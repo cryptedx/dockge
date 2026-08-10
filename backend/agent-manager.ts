@@ -8,6 +8,8 @@ import { R } from "redbean-node";
 import dayjs, { Dayjs } from "dayjs";
 
 const AGENT_REQUEST_TIMEOUT_MS = 60_000;
+const AGENT_UPDATE_REQUEST_TIMEOUT_MS = 180_000;
+const AGENT_UPDATE_EVENTS = new Set([ "updateStack", "applyStackUpdates", "applyStackServiceUpdates" ]);
 
 /**
  * Dockge Instance Manager
@@ -281,11 +283,14 @@ export class AgentManager {
         const callback = args[args.length - 1];
         if (typeof callback === "function") {
             const eventArgs = args.slice(0, -1);
-            client.timeout(AGENT_REQUEST_TIMEOUT_MS).emit("agent", endpoint, eventName, ...eventArgs, (err: Error | null, ...callbackArgs: unknown[]) => {
+            const requestTimeoutMs = AGENT_UPDATE_EVENTS.has(eventName)
+                ? AGENT_UPDATE_REQUEST_TIMEOUT_MS
+                : AGENT_REQUEST_TIMEOUT_MS;
+            client.timeout(requestTimeoutMs).emit("agent", endpoint, eventName, ...eventArgs, (err: Error | null, ...callbackArgs: unknown[]) => {
                 if (err) {
                     callback({
                         ok: false,
-                        msg: `${endpoint}: ${eventName} timed out after ${AGENT_REQUEST_TIMEOUT_MS / 1000}s`,
+                        msg: `${endpoint}: ${eventName} timed out after ${requestTimeoutMs / 1000}s`,
                     });
                     return;
                 }

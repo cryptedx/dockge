@@ -21,7 +21,7 @@
 ## File Structure
 
 - Modify `backend/stack.ts`: build and use the health-gated Compose `up` arguments.
-- Create `backend/stack.test.ts`: assert the exact update argument order for whole-stack and selected-service updates.
+- Create `backend/stack.test.ts`: assert the exact health-gated update invocation without importing the native PTY dependency.
 - Modify `backend/agent-manager.ts`: select the acknowledgement timeout from the proxied event name.
 - Modify `backend/agent-manager.test.ts`: cover default and update-event timeouts, including timeout error text.
 
@@ -37,7 +37,7 @@
 
 **Interfaces:**
 - Consumes: `Stack.update(socket: DockgeSocket, serviceNames: string[])`, `AgentManager.emitToEndpoint(endpoint: string, eventName: string, ...args: unknown[])`, and Docker Compose `up --wait --wait-timeout`.
-- Produces: `getUpdateComposeUpOptions(serviceNames: string[]): string[]`; update-event acknowledgement timeouts of 180 seconds; unchanged 60-second timeouts for other events.
+- Produces: health-gated Compose arguments in the shared `Stack.update()` runtime call; update-event acknowledgement timeouts of 180 seconds; unchanged 60-second timeouts for other events.
 
 - [ ] **Step 1: Add failing command-argument tests**
 
@@ -45,25 +45,14 @@ Create `backend/stack.test.ts`:
 
 ```ts
 import assert from "node:assert/strict";
-import { getUpdateComposeUpOptions } from "./stack";
+import { readFileSync } from "node:fs";
 
-assert.deepEqual(getUpdateComposeUpOptions([]), [
-    "-d",
-    "--remove-orphans",
-    "--wait",
-    "--wait-timeout",
-    "60",
-]);
+const source = readFileSync(new URL("./stack.ts", import.meta.url), "utf-8");
 
-assert.deepEqual(getUpdateComposeUpOptions([ "api", "worker" ]), [
-    "-d",
-    "--remove-orphans",
-    "--wait",
-    "--wait-timeout",
-    "60",
-    "api",
-    "worker",
-]);
+assert.match(
+    source,
+    /this\.getComposeOptions\("up", "-d", "--remove-orphans", "--wait", "--wait-timeout", "60", \.\.\.serviceNames\)/
+);
 ```
 
 - [ ] **Step 2: Add failing agent-timeout tests**
@@ -130,18 +119,10 @@ env TMPDIR=/private/tmp pnpm exec tsx backend/agent-manager.test.ts
 
 Expected:
 
-- `backend/stack.test.ts` fails because `getUpdateComposeUpOptions` is not exported.
+- `backend/stack.test.ts` fails because the shared runtime update call does not contain `--wait --wait-timeout 60`.
 - `backend/agent-manager.test.ts` fails because update events still receive 60,000 ms.
 
 - [ ] **Step 4: Implement the minimal health-gated Compose arguments**
-
-Add this function above `export class Stack` in `backend/stack.ts`:
-
-```ts
-export function getUpdateComposeUpOptions(serviceNames: string[]) {
-    return [ "-d", "--remove-orphans", "--wait", "--wait-timeout", "60", ...serviceNames ];
-}
-```
 
 Replace the runtime `up` invocation inside `Stack.update()` with:
 
@@ -151,7 +132,7 @@ exitCode = await Terminal.exec(
     socket,
     terminalName,
     "docker",
-    this.getComposeOptions("up", ...getUpdateComposeUpOptions(serviceNames)),
+    this.getComposeOptions("up", "-d", "--remove-orphans", "--wait", "--wait-timeout", "60", ...serviceNames),
     this.path
 );
 ```
@@ -210,12 +191,12 @@ git diff --check
 pnpm run build:frontend
 ```
 
-Expected: every command exits zero and only the four intended implementation/test files are changed.
+Expected: every command exits zero. Only the four intended implementation/test files and this corrected plan are changed; the pre-existing untracked terminal plan remains untouched.
 
 - [ ] **Step 8: Commit the implementation**
 
 ```bash
-git add backend/stack.ts backend/stack.test.ts backend/agent-manager.ts backend/agent-manager.test.ts
+git add backend/stack.ts backend/stack.test.ts backend/agent-manager.ts backend/agent-manager.test.ts docs/superpowers/plans/2026-08-10-post-update-health-gate.md
 git commit -m "feat: wait for healthy stack updates"
 ```
 

@@ -576,7 +576,14 @@ export class Stack {
             }
 
             runtimeUpdateStarted = true;
-            exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("up", "-d", "--remove-orphans", ...serviceNames), this.path);
+            exitCode = await Terminal.exec(
+                this.server,
+                socket,
+                terminalName,
+                "docker",
+                this.getComposeOptions("up", "-d", "--remove-orphans", "--wait", "--wait-timeout", "60", ...serviceNames),
+                this.path
+            );
             if (exitCode !== 0) {
                 throw new Error("Failed to restart, please check the terminal output for more information.");
             }
